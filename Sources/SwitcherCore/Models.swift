@@ -55,6 +55,9 @@ public struct AppSettings: Codable, Equatable, Sendable {
     public var showsMenuBarPercentage: Bool
     public var showsFiveHourUsage: Bool
     public var statusBarUsageWindow: StatusBarUsageWindow
+    public var desktopLaunchEnvironment: String
+    public var automaticallyOpensDesktopAfterSwitch: Bool
+    public var desktopLaunchScript: String
 
     public static let `default` = AppSettings(
         language: .system,
@@ -67,12 +70,18 @@ public struct AppSettings: Codable, Equatable, Sendable {
         language: AppLanguage,
         showsMenuBarPercentage: Bool = true,
         showsFiveHourUsage: Bool = false,
-        statusBarUsageWindow: StatusBarUsageWindow = .fiveHour
+        statusBarUsageWindow: StatusBarUsageWindow = .fiveHour,
+        desktopLaunchEnvironment: String = "",
+        automaticallyOpensDesktopAfterSwitch: Bool = true,
+        desktopLaunchScript: String = ""
     ) {
         self.language = language
         self.showsMenuBarPercentage = showsMenuBarPercentage
         self.showsFiveHourUsage = showsFiveHourUsage
         self.statusBarUsageWindow = statusBarUsageWindow
+        self.desktopLaunchEnvironment = desktopLaunchEnvironment
+        self.automaticallyOpensDesktopAfterSwitch = automaticallyOpensDesktopAfterSwitch
+        self.desktopLaunchScript = desktopLaunchScript
     }
 
     public init(from decoder: any Decoder) throws {
@@ -90,6 +99,18 @@ public struct AppSettings: Codable, Equatable, Sendable {
             StatusBarUsageWindow.self,
             forKey: .statusBarUsageWindow
         ) ?? .fiveHour
+        desktopLaunchEnvironment = try container.decodeIfPresent(
+            String.self,
+            forKey: .desktopLaunchEnvironment
+        ) ?? ""
+        automaticallyOpensDesktopAfterSwitch = try container.decodeIfPresent(
+            Bool.self,
+            forKey: .automaticallyOpensDesktopAfterSwitch
+        ) ?? true
+        desktopLaunchScript = try container.decodeIfPresent(
+            String.self,
+            forKey: .desktopLaunchScript
+        ) ?? ""
     }
 }
 
@@ -190,6 +211,7 @@ public enum SwitchStage: String, CaseIterable, Sendable {
     case activateTargetCredential
     case verifyTargetIdentity
     case commitActiveAccountID
+    case runPostSwitchScript
     case reopenDesktop
 }
 

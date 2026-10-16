@@ -6,6 +6,9 @@ struct SettingsView: View {
     @ObservedObject var updater: AppUpdater
     let onBack: () -> Void
 
+    @State private var desktopLaunchEnvironmentDraft = ""
+    @State private var desktopLaunchScriptDraft = ""
+
     var body: some View {
         VStack(spacing: 0) {
             PopoverHeader(
@@ -75,7 +78,68 @@ struct SettingsView: View {
                 .pickerStyle(.menu)
                 .fixedSize()
             }
+            rowDivider
+            HStack(spacing: 8) {
+                Text(model.text("settings_desktop_launch"))
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.secondary)
 
+                Spacer(minLength: 8)
+
+                Toggle(model.text("desktop_launch_auto_open"), isOn: Binding(
+                    get: { model.settings.automaticallyOpensDesktopAfterSwitch },
+                    set: { enabled in Task { await model.setAutomaticallyOpensDesktopAfterSwitch(enabled) } }
+                ))
+                .font(.system(size: 11))
+                .toggleStyle(.switch)
+                .fixedSize()
+                .accessibilityLabel(model.text("automatically_opens_desktop_after_switch"))
+                .help(model.text("automatically_opens_desktop_after_switch"))
+
+                Button(model.text("save")) {
+                    let environment = desktopLaunchEnvironmentDraft
+                    let script = desktopLaunchScriptDraft
+                    Task {
+                        await model.setDesktopLaunchConfiguration(environment: environment, script: script)
+                    }
+                }
+                .buttonStyle(.bordered)
+                .fixedSize()
+                .disabled(
+                    desktopLaunchEnvironmentDraft
+                        == model.settings.desktopLaunchEnvironment
+                        && desktopLaunchScriptDraft == model.settings.desktopLaunchScript
+                )
+            }
+            .padding(.horizontal, 14)
+            .padding(.top, 8)
+            .padding(.bottom, 4)
+
+            TextField(
+                model.text("desktop_launch_environment_placeholder"),
+                text: $desktopLaunchEnvironmentDraft,
+                axis: .vertical
+            )
+            .font(.system(size: 11, design: .monospaced))
+            .lineLimit(2, reservesSpace: true)
+            .textFieldStyle(.roundedBorder)
+            .accessibilityLabel(model.text("desktop_launch_environment"))
+            .padding(.horizontal, 14)
+            .padding(.bottom, 4)
+
+            TextField(
+                model.text("desktop_launch_script_placeholder"),
+                text: $desktopLaunchScriptDraft,
+                axis: .vertical
+            )
+            .font(.system(size: 11, design: .monospaced))
+            .lineLimit(2, reservesSpace: true)
+            .textFieldStyle(.roundedBorder)
+            .accessibilityLabel(model.text("desktop_launch_script"))
+            .help(model.text("desktop_launch_script_hint"))
+            .padding(.horizontal, 14)
+            .padding(.bottom, 8)
+            rowDivider
             sectionLabel("settings_updates")
             settingRow("automatically_check_updates") {
                 settingSwitch("automatically_check_updates", isOn: Binding(
@@ -107,7 +171,11 @@ struct SettingsView: View {
         .padding(.bottom, 6)
         .font(.system(size: 13))
         .controlSize(.small)
-        .onAppear { model.refreshLaunchAtLoginStatus() }
+        .onAppear {
+            model.refreshLaunchAtLoginStatus()
+            desktopLaunchEnvironmentDraft = model.settings.desktopLaunchEnvironment
+            desktopLaunchScriptDraft = model.settings.desktopLaunchScript
+        }
     }
 
     private var rowDivider: some View {

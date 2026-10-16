@@ -202,7 +202,7 @@ private struct SwitchConfirmationPage: View {
             Divider()
 
             VStack(alignment: .leading, spacing: 14) {
-                Text(model.text("switch_body"))
+                Text(model.text("switch_body_launch_settings"))
                     .font(.system(size: 11.5))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)

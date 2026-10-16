@@ -117,6 +117,25 @@ Run `codex-account-switcher update` to update, `open` to launch, or `uninstall` 
 
 Existing terminal processes keep their current runtime state. Start a new Codex CLI process to use the newly selected account.
 
+On macOS, Settings → Desktop Launch groups **Auto-open**, launch environment variables, and an optional shell script. Auto-open is enabled by default; turn it off to leave Desktop closed after switching. Save the environment and script together with **Save**. After a successful switch, the script runs through `/bin/zsh -c` and finishes before Auto-open is checked, including when Auto-open is off. Leave the script blank to skip it; to run a file, enter a command such as `/bin/bash "$HOME/scripts/after-switch.sh"`. Selecting the active account runs nothing. Windows retains its existing launch behavior.
+
+The script runs with your home directory as its working directory, the configured launch variables, and `CODEX_HOME` set to the active account directory. Its exports do not carry back into Desktop; set Desktop variables in the environment field. Standard input and output are disconnected, so scripts should finish without interactive prompts and write any desired logs to a file. A nonzero exit status stops automatic opening and reports the error; the selected account stays active.
+
+Before starting the shell, Switcher merges its inherited environment with the configured variables, then sets `CODEX_HOME` and the following reserved variables. Source values come from the profile snapshot captured before switching; target values come from the verified, committed account. Reserved values override configured values; unavailable account IDs and emails are empty strings. On first activation, all source variables are empty strings. These account variables are passed to the script only.
+
+| Variable | Value |
+| --- | --- |
+| `CODEX_SWITCHER_TARGET_PROFILE_ID` | Stable local profile UUID; use this to distinguish saved profiles. |
+| `CODEX_SWITCHER_TARGET_ACCOUNT_ID` | Account/workspace ID recorded in the profile, when available. |
+| `CODEX_SWITCHER_TARGET_EMAIL` | Target profile's email, when available. |
+| `CODEX_SWITCHER_TARGET_NAME` | Target profile's display name. |
+| `CODEX_SWITCHER_SOURCE_PROFILE_ID` | Source profile's local UUID, or empty on first activation. |
+| `CODEX_SWITCHER_SOURCE_ACCOUNT_ID` | Source account/workspace ID, when available. |
+| `CODEX_SWITCHER_SOURCE_EMAIL` | Source profile's email, when available. |
+| `CODEX_SWITCHER_SOURCE_NAME` | Source profile's display name, or empty on first activation. |
+
+For example, a script can select an action with `case "$CODEX_SWITCHER_TARGET_EMAIL" in ... esac`, or pass `"$CODEX_SWITCHER_SOURCE_PROFILE_ID"` and `"$CODEX_SWITCHER_TARGET_PROFILE_ID"` as arguments to another script. Values are supplied through the process environment and are not substituted into shell source. The existing post-switch hook receives the source profile as an optional argument, and the macOS adapter reads the committed target through the existing account store. No new switch stages, persistent state, or storage-format changes are required.
+
 ## Feedback wanted
 
 The product is being shaped for ordinary desktop users. Join the public discussion, [“What still feels too technical in a Codex account switcher for Mac?”](https://github.com/liuzhao1225/codex-account-switcher/discussions/2), and tell us whether the friction is downloading the app, adding an account, seeing the active account, or understanding the switch confirmation.

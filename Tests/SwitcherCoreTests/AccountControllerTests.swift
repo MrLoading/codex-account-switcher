@@ -12,10 +12,14 @@ struct AccountControllerTests {
         let home = try await fixture.store.createProfileDirectory(id: id)
         try Data("saved-fixture".utf8).write(to: home.appendingPathComponent("auth.json"))
         try await fixture.store.addProfile(profile)
-        let service = SwitchService(desktop: FixtureDesktop(), store: fixture.store, codex: fixture.client)
+        let desktop = SourceRecordingDesktop()
+        let service = SwitchService(desktop: desktop, store: fixture.store, codex: fixture.client)
         try await service.switchAccount(to: id)
         #expect(try await fixture.store.loadRegistry().activeAccountID == id)
         #expect(try String(contentsOf: fixture.active.appendingPathComponent("auth.json"), encoding: .utf8) == "saved-fixture")
+        let (scriptRan, source) = await desktop.recordedScriptSource()
+        #expect(scriptRan)
+        #expect(source == nil)
     }
 
     @Test func failedFirstActivationRestoresTheUnsignedInState() async throws {
@@ -121,11 +125,46 @@ struct AccountControllerTests {
         await fixture.model.setShowsMenuBarPercentage(false)
         await fixture.model.setShowsFiveHourUsage(true)
         await fixture.model.setStatusBarUsageWindow(.weekly)
+        await fixture.model.setAutomaticallyOpensDesktopAfterSwitch(false)
+        await fixture.model.setDesktopLaunchConfiguration(
+            environment: "HTTPS_PROXY=http://localhost:7890",
+            script: "print 'switched'"
+        )
         let saved = try await fixture.store.loadSettings()
         #expect(saved.language == .simplifiedChinese)
         #expect(!saved.showsMenuBarPercentage)
         #expect(saved.showsFiveHourUsage)
         #expect(saved.statusBarUsageWindow == .weekly)
+        #expect(!saved.automaticallyOpensDesktopAfterSwitch)
+        #expect(saved.desktopLaunchEnvironment == "HTTPS_PROXY=http://localhost:7890")
+        #expect(saved.desktopLaunchScript == "print 'switched'")
+        await fixture.model.setLanguage(.english)
+        #expect(try await fixture.store.loadSettings().desktopLaunchScript == saved.desktopLaunchScript)
+    }
+
+    @Test func scriptFailureShowsTheCommittedAccountAndScriptError() async throws {
+        let fixture = try ControllerFixture()
+        defer { fixture.clean() }
+        let id = UUID()
+        let profile = AccountProfile(id: id, displayName: "Demo", email: "demo@example.test",
+                                     accountID: "demo-account", createdAt: Date())
+        let home = try await fixture.store.createProfileDirectory(id: id)
+        try Data(#"{"tokens":{"account_id":"demo-account"}}"#.utf8)
+            .write(to: home.appendingPathComponent("auth.json"))
+        try await fixture.store.addProfile(profile)
+        let model = AccountController(store: fixture.store, codex: fixture.client,
+            switchService: SwitchService(desktop: ScriptFailingDesktop(), store: fixture.store, codex: fixture.client))
+        await model.start()
+
+        await model.switchAccount(to: id)
+        await model.waitForWeeklyUsageRefresh()
+
+        #expect(model.activeAccountID == id)
+        #expect(model.activeIdentityConfirmed)
+        #expect(model.visibleError?.stage == .runPostSwitchScript)
+        #expect(model.visibleError?.titleKey == "switched_reopen_title")
+        #expect(model.visibleError?.message.contains("fixture script failure") == true)
+        #expect(!model.isMutating)
     }
 
     @Test func statusBarUsesSelectedUsageWindow() async throws {
@@ -208,6 +247,28 @@ private actor FixtureClient: AccountClient {
 private struct FixtureDesktop: DesktopControlling {
     func closeDesktop() async throws {}
     func reopenDesktop() async throws {}
+}
+
+private struct ScriptFailingDesktop: DesktopControlling {
+    func closeDesktop() async throws {}
+    func runPostSwitchScript(source: AccountProfile?) async throws {
+        throw CodexClientError.processLaunchFailed("fixture script failure")
+    }
+    func reopenDesktop() async throws {
+        Issue.record("Desktop must not open after a script failure")
+    }
+}
+
+private actor SourceRecordingDesktop: DesktopControlling {
+    private var scriptRan = false
+    private var scriptSource: AccountProfile?
+    func closeDesktop() async throws {}
+    func reopenDesktop() async throws {}
+    func runPostSwitchScript(source: AccountProfile?) async throws {
+        scriptRan = true
+        scriptSource = source
+    }
+    func recordedScriptSource() -> (Bool, AccountProfile?) { (scriptRan, scriptSource) }
 }
 
 private struct CredentialCreatingDesktop: DesktopControlling {
