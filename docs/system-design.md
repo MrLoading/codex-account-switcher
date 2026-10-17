@@ -436,7 +436,9 @@ stateDiagram-v2
     SavingCurrent --> ActivatingTarget
     ActivatingTarget --> VerifyingTarget
     VerifyingTarget --> CommittingProfile
-    CommittingProfile --> ReopeningDesktop
+    CommittingProfile --> RunningPostSwitchScript
+    RunningPostSwitchScript --> ReopeningDesktop: Auto-open enabled
+    RunningPostSwitchScript --> Completed: Auto-open disabled
     ReopeningDesktop --> Completed
 
     Preflight --> Failed
@@ -446,6 +448,7 @@ stateDiagram-v2
     VerifyingTarget --> RestoringOriginal
     CommittingProfile --> RestoringOriginal
     RestoringOriginal --> Failed
+    RunningPostSwitchScript --> Failed
     ReopeningDesktop --> Failed
 
     Completed --> [*]
@@ -464,6 +467,7 @@ func switchAccount(to targetID: UUID) async throws {
           registry.accounts.contains(where: { $0.id == originalActiveID }) else {
         throw AccountStoreError.activeProfileMissing
     }
+    guard originalActiveID != targetID else { return }
 
     stage = .closeDesktop
     try await desktop.closeDesktop()
@@ -489,12 +493,21 @@ func switchAccount(to targetID: UUID) async throws {
         throw await restoreOriginalCredential(originalActiveID, preserving: error)
     }
 
+    stage = .runPostSwitchScript
+    try await desktop.runPostSwitchScript(source: registry.accounts.first(where: { $0.id == originalActiveID }))
+
     stage = .reopenDesktop
-    try await desktop.reopenDesktop()
+    try await desktop.reopenDesktopAfterSwitch()
 }
 ```
 
 The restoration helper reuses the saved profile credential and the same atomic installation path. It returns the original stage error after a successful restoration, or one error containing both the original and restoration failures.
+
+For identity reads only, an explicit `account: null` together with `requiresOpenaiAuth: false` means the selected provider does not expose an OpenAI account. `CodexClient` then identifies the saved ChatGPT login using the existing `CredentialIdentity` reader on that same home's `auth.json`. The source and target must still match their registered profiles through the existing switch checks. A null account that requires OpenAI authentication, an incomplete response, or credentials without a readable ChatGPT identity still fails. This reads local identity metadata; it does not establish token validity or authenticate the third-party provider. It neither rewrites provider configuration nor changes the handoff order.
+
+On macOS, `runPostSwitchScript` executes the saved script with `/bin/zsh -c` after the account is committed, and `reopenDesktopAfterSwitch` checks the persisted Auto-open preference after the script finishes. Empty scripts are skipped. A script error leaves the target account active and stops automatic opening. Platform adapters without these preferences default to no script and the existing `reopenDesktop` behavior.
+
+The existing `runPostSwitchScript(source:)` hook receives the optional original profile snapshot already captured by `SwitchService` before credential changes. The macOS adapter reads the committed target from `AccountStore.loadRegistry()` before running a nonempty script. It overlays each profile's local UUID, account/workspace ID, email, and display name as `CODEX_SWITCHER_SOURCE_PROFILE_ID`, `CODEX_SWITCHER_SOURCE_ACCOUNT_ID`, `CODEX_SWITCHER_SOURCE_EMAIL`, `CODEX_SWITCHER_SOURCE_NAME`, and the corresponding `CODEX_SWITCHER_TARGET_*` variables in the child environment. Missing optional fields become empty strings; on first activation, every source value is empty. Reserved metadata overrides user-configured values. This context remains local to script execution, with no new switch stages, persistent state, or storage-format changes. Scripts receive values through `Process.environment`, without shell-source interpolation.
 
 ### 12.3 Preflight
 

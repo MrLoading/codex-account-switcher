@@ -108,6 +108,7 @@ Run `codex-account-switcher update` to update, `open` to launch, or `uninstall` 
 | **Reset count and plan date** | See the saved subscription date on the left and available rate-limit reset count on the right of one compact row. Dates use `YYYY-MM-DD`; hover over a date for its login-snapshot source and check time. Missing values remain unknown. |
 | **Extra-reset forecast (macOS)** | A single menu bar row shows a reset icon, the Tibo reset forecast label, two compact 24/48-hour probability boxes and an external-link arrow using the independent site’s experimental forecast. Click the entry to open [codex-reset.com](https://codex-reset.com/) for announcements, history and details. These estimates are not an OpenAI reset schedule or proof that a reset reached your account. |
 | **Native apps on both platforms** | SwiftUI on macOS and WPF on Windows, with English and Simplified Chinese interfaces. |
+| **Additional features in this fork (macOS)** | Customize Desktop launch environment variables, choose whether to open Desktop automatically after switching, and run a shell script after switching and before any automatic launch. Scripts receive source and target account details through environment variables. |
 
 ## How it works
 
@@ -116,6 +117,25 @@ Run `codex-account-switcher update` to update, `open` to launch, or `uninstall` 
 3. **Choose and continue:** select an account in the app, confirm, and let the app reopen Codex Desktop.
 
 Existing terminal processes keep their current runtime state. Start a new Codex CLI process to use the newly selected account.
+
+On macOS, Settings → Desktop Launch groups **Auto-open**, launch environment variables, and an optional shell script. Auto-open is enabled by default; turn it off to leave Desktop closed after switching. Save the environment and script together with **Save**. After a successful switch, the script runs through `/bin/zsh -c` and finishes before Auto-open is checked, including when Auto-open is off. Leave the script blank to skip it; to run a file, enter a command such as `/bin/bash "$HOME/scripts/after-switch.sh"`. Selecting the active account runs nothing. Windows retains its existing launch behavior.
+
+The script runs with your home directory as its working directory, the configured launch variables, and `CODEX_HOME` set to the active account directory. Its exports do not carry back into Desktop; set Desktop variables in the environment field. Standard input and output are disconnected, so scripts should finish without interactive prompts and write any desired logs to a file. A nonzero exit status stops automatic opening and reports the error; the selected account stays active.
+
+Before starting the shell, Switcher merges its inherited environment with the configured variables, then sets `CODEX_HOME` and the following reserved variables. Source values come from the profile snapshot captured before switching; target values come from the verified, committed account. Reserved values override configured values; unavailable account IDs and emails are empty strings. On first activation, all source variables are empty strings. These account variables are passed to the script only.
+
+| Variable | Value |
+| --- | --- |
+| `CODEX_SWITCHER_TARGET_PROFILE_ID` | Stable local profile UUID; use this to distinguish saved profiles. |
+| `CODEX_SWITCHER_TARGET_ACCOUNT_ID` | Account/workspace ID recorded in the profile, when available. |
+| `CODEX_SWITCHER_TARGET_EMAIL` | Target profile's email, when available. |
+| `CODEX_SWITCHER_TARGET_NAME` | Target profile's display name. |
+| `CODEX_SWITCHER_SOURCE_PROFILE_ID` | Source profile's local UUID, or empty on first activation. |
+| `CODEX_SWITCHER_SOURCE_ACCOUNT_ID` | Source account/workspace ID, when available. |
+| `CODEX_SWITCHER_SOURCE_EMAIL` | Source profile's email, when available. |
+| `CODEX_SWITCHER_SOURCE_NAME` | Source profile's display name, or empty on first activation. |
+
+For example, a script can select an action with `case "$CODEX_SWITCHER_TARGET_EMAIL" in ... esac`, or pass `"$CODEX_SWITCHER_SOURCE_PROFILE_ID"` and `"$CODEX_SWITCHER_TARGET_PROFILE_ID"` as arguments to another script. Values are supplied through the process environment and are not substituted into shell source. The existing post-switch hook receives the source profile as an optional argument, and the macOS adapter reads the committed target through the existing account store. No new switch stages, persistent state, or storage-format changes are required.
 
 ## Feedback wanted
 

@@ -106,6 +106,7 @@ npx @liuzhao1225/codex-account-switcher@latest
 | **本地账号存储** | 账号数据留在本机，不依赖应用自建的代理或云端账号服务。 |
 | **快速查看用量** | 账号列表默认查看每周用量，也可在设置中开启服务端提供的精确 300 分钟（5 小时）窗口与重置时间；该用量行默认关闭。菜单栏或 Windows 托盘可选择显示 5 小时或每周剩余额度，默认显示 5 小时。 |
 | **双平台原生应用** | macOS 使用 SwiftUI，Windows 使用 WPF；均提供英文与简体中文界面。 |
+| **本分支额外功能（macOS）** | 自定义桌面应用启动环境变量，通过开关控制切换后是否自动打开，并在切换成功后、自动启动前执行 Shell 脚本；脚本可通过环境变量获取源账号和目标账号信息。 |
 
 ## 工作原理
 
@@ -114,6 +115,25 @@ npx @liuzhao1225/codex-account-switcher@latest
 3. **选择后继续使用：** 在应用中选择账号并确认，由应用重新打开 Codex Desktop。
 
 已经运行的终端进程会保留原有运行状态。启动新的 Codex CLI 进程即可使用刚刚选择的账号。
+
+macOS 的“设置 → 桌面应用启动”集中提供**自动打开**开关、启动环境变量和可选 Shell 脚本。自动打开默认开启，关闭后切换账号将保持桌面应用关闭；环境变量和脚本通过同一个**保存**按钮保存。账号切换成功后，先通过 `/bin/zsh -c` 执行脚本，等待执行完成，再判断是否自动打开；关闭自动打开时也会执行脚本。脚本留空则跳过；如需执行脚本文件，可填写 `/bin/bash "$HOME/scripts/after-switch.sh"`。选择当前账号不会执行这些操作。Windows 保持现有启动行为。
+
+脚本以用户主目录为工作目录，继承配置的启动环境变量，并将 `CODEX_HOME` 设为当前活动账号目录。脚本中的 `export` 不会传回桌面应用，应用需要的变量应填写在环境变量框。脚本不提供交互式输入，也不显示标准输出，请避免等待输入，需要日志时自行写入文件。脚本以非零状态退出时停止自动启动并报告错误，已切换的账号保持生效。
+
+Shell 启动前，先合并 Switcher 继承的环境变量和设置页变量，再写入 `CODEX_HOME` 及以下保留变量。源账号信息来自切换前捕获的档案快照，目标账号信息来自已校验并提交的账号。保留变量会覆盖设置页同名变量；缺少的账号 ID、邮箱传入空字符串。首次启用账号时，所有源账号变量均为空字符串。这些账号变量仅传给脚本。
+
+| 变量 | 内容 |
+| --- | --- |
+| `CODEX_SWITCHER_TARGET_PROFILE_ID` | 本地档案的稳定 UUID，适合用于区分已保存的账号档案。 |
+| `CODEX_SWITCHER_TARGET_ACCOUNT_ID` | 档案中记录的账号／工作区 ID，可能为空。 |
+| `CODEX_SWITCHER_TARGET_EMAIL` | 目标账号邮箱，可能为空。 |
+| `CODEX_SWITCHER_TARGET_NAME` | 目标账号的显示名称。 |
+| `CODEX_SWITCHER_SOURCE_PROFILE_ID` | 源账号的本地档案 UUID，首次启用时为空。 |
+| `CODEX_SWITCHER_SOURCE_ACCOUNT_ID` | 源账号／工作区 ID，可能为空。 |
+| `CODEX_SWITCHER_SOURCE_EMAIL` | 源账号邮箱，可能为空。 |
+| `CODEX_SWITCHER_SOURCE_NAME` | 源账号的显示名称，首次启用时为空。 |
+
+例如，可在脚本中使用 `case "$CODEX_SWITCHER_TARGET_EMAIL" in ... esac` 选择操作，或将 `"$CODEX_SWITCHER_SOURCE_PROFILE_ID"` 和 `"$CODEX_SWITCHER_TARGET_PROFILE_ID"` 作为参数传给其他脚本。变量通过进程环境传递，不拼接到 Shell 源码中。现有切换后回调通过可选参数接收源账号档案，macOS 适配层通过现有账号存储读取已提交的目标档案；无需新增切换阶段、持久化状态或修改存储格式。
 
 ## 征集反馈
 

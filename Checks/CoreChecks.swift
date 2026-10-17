@@ -41,6 +41,7 @@ private actor Recorder {
 private struct FakeDesktop: DesktopControlling {
     let recorder: Recorder
     func closeDesktop() async throws { await recorder.append(.closeDesktop) }
+    func runPostSwitchScript(source: AccountProfile?) async throws { await recorder.append(.runPostSwitchScript) }
     func reopenDesktop() async throws { await recorder.append(.reopenDesktop) }
 }
 

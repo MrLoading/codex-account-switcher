@@ -1,0 +1,58 @@
+# Temporary macOS development artifact workflow.
+name: macOS Dev Artifact
+
+on:
+  push:
+    branches:
+      - feature/macos-desktop-launch-environment
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-26
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Show selected Swift toolchain
+        run: |
+          xcode-select -p
+          xcrun --find swift
+          swift --version
+          uname -m
+
+      - name: Install fish for tests
+        run: brew install fish
+
+      - name: Run Swift tests
+        run: swift test
+
+      - name: Run core checks
+        run: ./scripts/run-core-checks.sh
+
+      - name: Package ad-hoc signed macOS app
+        id: package
+        run: |
+          set -euo pipefail
+
+          app_path=$(./scripts/package-local-app.sh | tail -n 1)
+          echo "app_path=$app_path" >> "$GITHUB_OUTPUT"
+
+          codesign --verify --deep --strict "$app_path"
+
+          archive="$RUNNER_TEMP/Codex-Account-Switcher-dev.app.zip"
+          ditto -c -k --sequesterRsrc --keepParent \
+            "$app_path" \
+            "$archive"
+
+          echo "archive=$archive" >> "$GITHUB_OUTPUT"
+
+      - name: Upload macOS app
+        uses: actions/upload-artifact@v4
+        with:
+          name: Codex-Account-Switcher-macos-dev
+          path: ${{ steps.package.outputs.archive }}
+          if-no-files-found: error

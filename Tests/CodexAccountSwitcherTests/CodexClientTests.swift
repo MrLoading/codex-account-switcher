@@ -4,6 +4,112 @@ import Testing
 @testable import CodexAccountSwitcher
 
 struct CodexClientTests {
+    @Test func customProviderUsesTheCredentialFromTheRequestedHome() async throws {
+        let fixture = try ScriptFixture(accountResult: #"{"account":null,"requiresOpenaiAuth":false,"workspaceRouting":null}"#)
+        defer { fixture.remove() }
+        let claims = Data(#"{"email":"saved@example.test","https://api.openai.com/auth":{"chatgpt_account_id":"workspace"}}"#.utf8)
+            .base64EncodedString().replacingOccurrences(of: "+", with: "-")
+            .replacingOccurrences(of: "/", with: "_").replacingOccurrences(of: "=", with: "")
+        try Data("{\"tokens\":{\"id_token\":\"header.\(claims).signature\"}}".utf8)
+            .write(to: fixture.root.appending(path: "auth.json"))
+        let client = CodexClient(locator: .init(explicitURL: fixture.executable), requestTimeout: .seconds(2))
+
+        #expect(try await client.readIdentity(profileHome: fixture.root)
+            == AccountIdentity(accountID: "workspace", email: "saved@example.test"))
+        let emptyHome = fixture.root.appending(path: "empty-home")
+        try FileManager.default.createDirectory(at: emptyHome, withIntermediateDirectories: true)
+        await #expect(throws: CodexClientError.identityUnavailable) {
+            _ = try await client.readIdentity(profileHome: emptyHome)
+        }
+    }
+
+    @Test(arguments: [
+        #"{"account":null,"requiresOpenaiAuth":true}"#,
+        #"{"account":null}"#,
+        #"{"requiresOpenaiAuth":false}"#,
+        #"{"account":"malformed","requiresOpenaiAuth":false}"#,
+        #"{"account":null,"requiresOpenaiAuth":"false"}"#,
+    ])
+    func doesNotUseLocalCredentialsForOtherMissingAccountResponses(accountResult: String) async throws {
+        let fixture = try ScriptFixture(accountResult: accountResult)
+        defer { fixture.remove() }
+        try Data(#"{"tokens":{"account_id":"workspace"}}"#.utf8)
+            .write(to: fixture.root.appending(path: "auth.json"))
+        let client = CodexClient(locator: .init(explicitURL: fixture.executable), requestTimeout: .seconds(2))
+
+        await #expect(throws: CodexClientError.identityUnavailable) {
+            _ = try await client.readIdentity(profileHome: fixture.root)
+        }
+    }
+
+    @Test(arguments: [
+        "{}",
+        #"{"OPENAI_API_KEY":"fixture-key"}"#,
+        #"{"tokens":{"account_id":""}}"#,
+        #"{"tokens":{"account_id":"workspace","id_token":"malformed"}}"#,
+        "malformed fixture credential",
+    ])
+    func customProviderStillRequiresAReadableChatGPTIdentity(credential: String) async throws {
+        let fixture = try ScriptFixture(accountResult: #"{"account":null,"requiresOpenaiAuth":false}"#)
+        defer { fixture.remove() }
+        try Data(credential.utf8).write(to: fixture.root.appending(path: "auth.json"))
+        let client = CodexClient(locator: .init(explicitURL: fixture.executable), requestTimeout: .seconds(2))
+
+        await #expect(throws: CodexClientError.identityUnavailable) {
+            _ = try await client.readIdentity(profileHome: fixture.root)
+        }
+    }
+
+    @Test(arguments: ["matching", "wrong-source", "wrong-target"])
+    func customProviderHandoffKeepsCredentialMatchingAndRestoration(scenario: String) async throws {
+        let fixture = try ScriptFixture(accountResult: #"{"account":null,"requiresOpenaiAuth":false}"#)
+        defer { fixture.remove() }
+        let activeHome = fixture.root.appending(path: "active")
+        try FileManager.default.createDirectory(at: activeHome, withIntermediateDirectories: true)
+        let config = Data("model_provider = \"custom\"\n".utf8)
+        try config.write(to: activeHome.appending(path: "config.toml"))
+        let store = AccountStore(baseURL: fixture.root.appending(path: "store"), activeHomeURL: activeHome)
+        let original = AccountProfile(id: UUID(), displayName: "Original", email: nil,
+                                      accountID: "original", createdAt: Date())
+        let target = AccountProfile(id: UUID(), displayName: "Target", email: nil,
+                                    accountID: "target", createdAt: Date())
+        let originalBytes = Data(#"{"tokens":{"account_id":"original"}}"#.utf8)
+        try originalBytes.write(to: activeHome.appending(path: "auth.json"))
+        try await store.importCurrentProfile(original)
+        let targetHome = try await store.createProfileDirectory(id: target.id)
+        let targetBytes = Data(#"{"tokens":{"account_id":"target"}}"#.utf8)
+        let wrongBytes = Data(#"{"tokens":{"account_id":"unexpected"}}"#.utf8)
+        try (scenario == "wrong-target" ? wrongBytes : targetBytes).write(to: targetHome.appending(path: "auth.json"))
+        try await store.addProfile(target)
+        if scenario == "wrong-source" {
+            try wrongBytes.write(to: activeHome.appending(path: "auth.json"))
+        }
+        let desktop = IdentityCheckDesktop()
+        let client = CodexClient(locator: .init(explicitURL: fixture.executable), requestTimeout: .seconds(2))
+        let service = SwitchService(desktop: desktop, store: store, codex: client)
+
+        if scenario == "matching" {
+            try await service.switchAccount(to: target.id)
+            #expect(try await store.loadRegistry().activeAccountID == target.id)
+            #expect(try Data(contentsOf: activeHome.appending(path: "auth.json")) == targetBytes)
+            #expect(await desktop.recordedCalls() == ["close", "script", "reopen"])
+        } else {
+            do {
+                try await service.switchAccount(to: target.id)
+                Issue.record("A mismatched credential must stop the switch")
+            } catch let error as OperationError {
+                #expect(error.stage == (scenario == "wrong-source" ? .saveCurrentCredential : .verifyTargetIdentity))
+            }
+            #expect(try await store.loadRegistry().activeAccountID == original.id)
+            #expect(try Data(contentsOf: activeHome.appending(path: "auth.json"))
+                == (scenario == "wrong-source" ? wrongBytes : originalBytes))
+            #expect(await desktop.recordedCalls() == ["close"])
+        }
+        let originalHome = await store.profileHome(id: original.id)
+        #expect(try Data(contentsOf: originalHome.appending(path: "auth.json")) == originalBytes)
+        #expect(try Data(contentsOf: activeHome.appending(path: "config.toml")) == config)
+    }
+
     @Test func fillsMissingWorkspaceIDFromTheSameProfileCredential() async throws {
         let fixture = try ScriptFixture(body: #"""
         while IFS= read -r line; do
@@ -303,6 +409,18 @@ private struct ScriptFixture {
     let root: URL
     let executable: URL
 
+    init(accountResult: String) throws {
+        try self.init(body: """
+        while IFS= read -r line; do
+          case "$line" in
+            *initialized*) ;;
+            *initialize*) printf '%s\\n' '{"id":0,"result":{}}' ;;
+            *account*read*) printf '%s\\n' '{"id":1,"result":\(accountResult)}' ;;
+          esac
+        done
+        """)
+    }
+
     init(body: String) throws {
         root = FileManager.default.temporaryDirectory
             .appending(path: "codex-client-tests-\(UUID().uuidString)", directoryHint: .isDirectory)
@@ -313,4 +431,12 @@ private struct ScriptFixture {
     }
 
     func remove() { try? FileManager.default.removeItem(at: root) }
+}
+
+private actor IdentityCheckDesktop: DesktopControlling {
+    private var calls: [String] = []
+    func closeDesktop() async throws { calls.append("close") }
+    func runPostSwitchScript(source: AccountProfile?) async throws { calls.append("script") }
+    func reopenDesktop() async throws { calls.append("reopen") }
+    func recordedCalls() -> [String] { calls }
 }

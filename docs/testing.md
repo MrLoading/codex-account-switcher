@@ -109,6 +109,22 @@ Specific partial-state assertions:
 - a restoration failure reports both the original and restoration errors;
 - Desktop-open error leaves target auth and target metadata active.
 
+macOS launch-preference regression cases additionally cover:
+
+- selecting the active account causes no close, credential write, script, or reopen;
+- script execution follows target verification and registry commit, and finishes before reopening;
+- script failure stops reopening while preserving the committed account, with the UI displaying that account and the script error;
+- an empty script is skipped, multiline scripts finish before returning, launch variables are inherited, and `CODEX_HOME` always points to the active directory;
+- the existing script hook receives the original profile captured before credential changes; first activation passes no source profile;
+- scripts receive both the original source and committed target's profile UUID, account/workspace ID, email, and name through reserved `CODEX_SWITCHER_SOURCE_*` and `CODEX_SWITCHER_TARGET_*` variables; those values override configured variables, optional fields become empty strings, all source values are empty on first activation, and quotes, shell syntax, Unicode, and newlines in metadata remain literal;
+- a nonempty script does not execute without a committed target, while an empty script does not require a target;
+- nonzero exit status and signal termination surface as script errors, and large stdout/stderr output does not block completion;
+- the saved script still executes when automatic opening is disabled, and Desktop remains closed;
+- legacy settings default to automatic opening and an empty script; both new preferences persist across reloads and unrelated setting changes;
+- platform adapters without macOS launch preferences retain their default reopen behavior.
+
+These additions are intended for the existing GitHub macOS development workflow (`swift test` and core checks). They were not compiled or run locally.
+
 Use both the fake store and the real `AccountStore` so call ordering, atomic credential installation, registry-write failure, and on-disk bytes are covered.
 
 ## 4. App-server fixture tests
@@ -117,6 +133,9 @@ Create a fake JSON-RPC child process that returns:
 
 - identity success;
 - identity mismatch;
+- the custom-provider response `account: null, requiresOpenaiAuth: false` identifies the saved ChatGPT login from the same requested home's `auth.json`, including its account ID and email;
+- null accounts requiring OpenAI authentication, missing or malformed response fields, absent credentials, API-key-only credentials, and malformed credentials still fail identity reads;
+- a custom-provider handoff saves the matching source and activates the matching target without changing `config.toml`; a source mismatch stops before credential replacement, while a target mismatch restores the original credential and never runs the script or reopens Desktop;
 - 5-hour and weekly rate-limit success from one response;
 - response with both `primary` and `secondary`;
 - response with `primary` only;
