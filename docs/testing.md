@@ -133,6 +133,9 @@ Create a fake JSON-RPC child process that returns:
 
 - identity success;
 - identity mismatch;
+- the custom-provider response `account: null, requiresOpenaiAuth: false` identifies the saved ChatGPT login from the same requested home's `auth.json`, including its account ID and email;
+- null accounts requiring OpenAI authentication, missing or malformed response fields, absent credentials, API-key-only credentials, and malformed credentials still fail identity reads;
+- a custom-provider handoff saves the matching source and activates the matching target without changing `config.toml`; a source mismatch stops before credential replacement, while a target mismatch restores the original credential and never runs the script or reopens Desktop;
 - 5-hour and weekly rate-limit success from one response;
 - response with both `primary` and `secondary`;
 - response with `primary` only;

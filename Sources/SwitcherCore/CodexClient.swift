@@ -588,6 +588,14 @@ public struct CodexClient: AccountClient {
 
     private func parseIdentity(_ value: JSONValue, profileHome: URL) throws -> AccountIdentity {
         guard let account = value["account"]?.objectValue else {
+            // Custom providers can intentionally omit an OpenAI account. Identify the
+            // saved login from this same home; callers still match it against the profile.
+            // Do not mask a missing first-party login or a malformed account response.
+            if case .null? = value["account"],
+               value["requiresOpenaiAuth"]?.boolValue == false,
+               let identity = try CredentialIdentity.read(from: profileHome) {
+                return identity
+            }
             throw CodexClientError.identityUnavailable
         }
         var accountID = account["accountId"]?.stringValue
