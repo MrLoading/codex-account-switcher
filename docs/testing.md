@@ -113,6 +113,8 @@ Specific partial-state assertions:
 
 Use both the fake store and the real `AccountStore` so call ordering, atomic credential installation, registry-write failure, and on-disk bytes are covered.
 
+`LocalSwitchIdentityTests` uses the production credential reader and real `AccountStore` in isolated directories. It checks A → B → A with two workspaces sharing an email, first activation, a changed original workspace, and malformed target credentials. The switch identity checks read the installed `auth.json` directly and never start app-server or depend on workspace routing discovery. Login and Usage requests continue to use app-server and expose their errors.
+
 ## 4. App-server fixture tests
 
 Create a fake JSON-RPC child process that returns:

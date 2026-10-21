@@ -69,14 +69,14 @@ private final class Host {
             guard controller == nil else { throw HostError.message("Already initialized.") }
             let environment = ProcessInfo.processInfo.environment
             let store = AccountStore(baseURL: environment["CODEX_SWITCHER_DATA_HOME"].map { URL(fileURLWithPath: $0) })
-            let codex = CodexClient(clientVersion: request.version ?? "0.1.20", openBrowser: { [self] url in
+            let codex = CodexClient(clientVersion: request.version ?? "0.1.21", openBrowser: { [self] url in
                 guard ["https", "http"].contains(url.scheme?.lowercased() ?? "") else {
                     throw HostError.message("Unsupported sign-in URL.")
                 }
                 try await platform("openBrowser", url: url)
             })
             let model = AccountController(store: store, codex: codex,
-                switchService: SwitchService(desktop: DesktopAdapter(host: self), store: store, codex: codex))
+                switchService: SwitchService(desktop: DesktopAdapter(host: self), store: store, codex: CredentialIdentity()))
             controller = model
             model.onChange = { [weak self] in self?.sendSnapshot() }
             await model.startBackgroundUsageRefresh()

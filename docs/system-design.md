@@ -16,7 +16,7 @@ Everything else exists to make that operation understandable and usable:
 - display weekly Usage and optional 5-hour Usage;
 - close and reopen Codex Desktop;
 - save the currently active credential before replacing it;
-- verify that Codex can read the selected identity;
+- verify that the installed credential belongs to the selected account;
 - maintain a small amount of local metadata.
 
 The MVP uses direct sequential code and lets failures surface. One bounded consistency action restores the validated original profile credential when target verification or the registry commit fails after activation. There is no general rollback framework.
@@ -58,7 +58,7 @@ Recommended stack:
 - AppKit for process discovery, application lifecycle and the independently accessible account panel;
 - Service Management for the main app's Login Item registration and authorization state;
 - Foundation `FileManager`, `Process`, and JSON coding;
-- Codex app-server JSON-RPC over stdio for identity and Usage reads.
+- Local credential identity checks during switching; Codex app-server JSON-RPC over stdio for login and Usage reads.
 
 `SwitcherAppDelegate` owns the shared UI models and starts refresh/update work in `applicationDidFinishLaunching`, even when the menu-bar label is offscreen. Manual launch and `applicationShouldHandleReopen` present `MenuBarPopover` in an `NSPanel` hosted by SwiftUI, with content-derived size constraints. The login-item Apple event suppresses the initial panel. Service Management remains the source of truth for auto-start registration.
 
@@ -514,7 +514,7 @@ Closing Desktop comes before saving the active credential so Codex has a chance 
 
 ### 12.5 Save current credentials
 
-The registry must identify one active account. After Desktop exits, read the shared home’s current identity and match it against this profile before saving. An external login mismatch stops visibly and leaves saved profiles unchanged.
+The registry must identify one active account. After Desktop exits, read the identity from the shared home’s current `auth.json` and match it against this profile before saving. An external login mismatch stops visibly and leaves saved profiles unchanged.
 
 ```text
 copy ~/.codex/auth.json
@@ -537,7 +537,7 @@ If activation fails, stop. Atomic installation throws before a completed replace
 
 ### 12.7 Verify target
 
-Start Codex app-server using the active `~/.codex` home and read identity.
+Read the identity from the installed `~/.codex/auth.json`. Both switch checks use the existing credential parser directly, so account handoff does not depend on app-server's network-backed workspace routing discovery. Missing or malformed credentials fail visibly. Codex authenticates the selected credential with its service after reopening.
 
 If identity does not match the target metadata, preserve the mismatch as the stage error and reinstall the just-saved original profile credential into `~/.codex/auth.json`.
 

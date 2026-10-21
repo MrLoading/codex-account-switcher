@@ -1,11 +1,9 @@
 ## 中文
 
-- 修复重新登录另一个 Codex 账号后仍沿用旧账号标记的问题。macOS 和 Windows 现在以本机当前登录凭证为准，自动选中对应账号并同步其凭证快照，无需手动登记。
-- 新的本机登录账号会自动保存，退出登录后清除当前账号标记。同邮箱的不同工作区保持独立；无法读取的凭证会显示错误。
-- macOS 的账号确认提示和“管理账号”按钮现在显示在同一行。
+- 修复切换账号时因 Codex app-server 的 `workspace routing discovery timed out` 报错而中断的问题。macOS 和 Windows 在保存当前凭证、核验目标账号时直接读取本地凭证中的工作区身份。
+- 保留同邮箱不同工作区的身份检查。凭证缺失、损坏或工作区不匹配时仍明确报错；登录和用量查询继续通过 Codex app-server 执行。
 
 ## English
 
-- Fix stale active-account selection after signing in to a different Codex account. Both macOS and Windows now follow the current local credentials, select the matching account, and sync its saved credentials without manual registration.
-- Newly discovered local accounts are saved automatically, and signing out clears the active selection. Workspaces sharing an email remain separate; unreadable credentials produce a visible error.
-- Keep the macOS account-confirmation warning and Manage Accounts button on one line.
+- Fix account switching interrupted by Codex app-server's `workspace routing discovery timed out` error. Both macOS and Windows now read workspace identity directly from local credentials when saving the current account and verifying the installed target.
+- Preserve identity checks for workspaces sharing an email. Missing, malformed, or mismatched credentials still produce visible errors; login and usage requests continue to use Codex app-server.

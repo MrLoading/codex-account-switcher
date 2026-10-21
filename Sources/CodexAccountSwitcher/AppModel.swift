@@ -44,7 +44,7 @@ final class AppModel: AccountController, @MainActor ObservableObject {
         let store = AccountStore()
         let codex = CodexClient()
         return AppModel(store: store, codex: codex,
-                        switchService: SwitchService(desktop: DesktopController(), store: store, codex: codex))
+                        switchService: SwitchService(desktop: DesktopController(), store: store, codex: CredentialIdentity()))
     }
 
     var launchesAtLogin: Bool { launchAtLoginState.isOn }
