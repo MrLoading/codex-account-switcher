@@ -363,12 +363,21 @@ struct AccountStoreTests {
         #expect(!legacySettings.showsFiveHourUsage)
         #expect(!AppSettings.default.showsFiveHourUsage)
         #expect(legacySettings.statusBarUsageWindow == .fiveHour)
+        #expect(!legacySettings.resetExpiryExperimentEnabled)
+        #expect(legacySettings.desktopLaunchEnvironment.isEmpty)
+        #expect(legacySettings.automaticallyOpensDesktopAfterSwitch)
+        #expect(AppSettings.default.automaticallyOpensDesktopAfterSwitch)
+        #expect(legacySettings.desktopLaunchScript.isEmpty)
 
         let updatedSettings = AppSettings(
             language: .simplifiedChinese,
             showsMenuBarPercentage: false,
             showsFiveHourUsage: true,
-            statusBarUsageWindow: .weekly
+            statusBarUsageWindow: .weekly,
+            resetExpiryExperimentEnabled: true,
+            desktopLaunchEnvironment: "all_proxy=http://127.0.0.1:7890",
+            automaticallyOpensDesktopAfterSwitch: false,
+            desktopLaunchScript: "print 'switched'\n/bin/true"
         )
         try await fixture.store.saveSettings(updatedSettings)
         let reloadedStore = AccountStore(

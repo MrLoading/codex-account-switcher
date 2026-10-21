@@ -21,6 +21,15 @@ public enum L10n {
 
     private static let tables: [AppLanguage: [String: String]] = [
         .english: [
+            "settings_desktop_launch": "Desktop Launch",
+            "desktop_launch_auto_open": "Auto-open",
+            "automatically_opens_desktop_after_switch": "Automatically open Codex Desktop after switching accounts",
+            "desktop_launch_environment": "Launch Environment Variables",
+            "desktop_launch_environment_placeholder": "KEY=VALUE per line, e.g. all_proxy=http://127.0.0.1:7890",
+            "desktop_launch_script": "Shell Script After Switching",
+            "desktop_launch_script_placeholder": "Optional shell script (/bin/zsh)",
+            "desktop_launch_script_hint": "Runs after switching, even when Auto-open is off. Desktop opens only after the script succeeds. Leave blank to skip.",
+            "save": "Save",
             "settings_general": "General",
             "settings_experimental": "Experimental",
             "reset_expiry_experiment": "Auto-reset experiment (log only)",
@@ -59,6 +68,7 @@ public enum L10n {
             "quit": "Quit",
             "switch_title": "Switch to %@?",
             "switch_body": "Codex Desktop will close and reopen. Finish or stop running Desktop tasks first. If Desktop asks to quit, complete its quit dialog. Switching stops if Desktop cannot exit normally. Existing CLI sessions stay open; new CLI sessions use the selected account.",
+            "switch_body_launch_settings": "Codex Desktop will close. After switching, the saved shell script runs, then Desktop opens if Auto-open is enabled. Finish or stop running Desktop tasks first. If Desktop asks to quit, complete its quit dialog. Switching stops if Desktop cannot exit normally. Existing CLI sessions stay open; new CLI sessions use the selected account.",
             "cancel": "Cancel",
             "switch": "Switch Account",
             "accounts": "Accounts",
@@ -90,8 +100,18 @@ public enum L10n {
             "active_unconfirmed": "Active account could not be confirmed",
             "switched_reopen_title": "Account switched",
             "switched_reopen_message": "The selected account is active, but Codex Desktop could not be reopened. Open Codex manually to continue.",
+            "switched_script_failed_message": "The selected account is active, but the shell script failed. Codex Desktop was not opened.",
         ],
         .simplifiedChinese: [
+            "settings_desktop_launch": "桌面应用启动",
+            "desktop_launch_auto_open": "自动打开",
+            "automatically_opens_desktop_after_switch": "切换账号后自动打开 Codex Desktop",
+            "desktop_launch_environment": "启动环境变量",
+            "desktop_launch_environment_placeholder": "每行一个 KEY=VALUE，例如 all_proxy=http://127.0.0.1:7890",
+            "desktop_launch_script": "切换后执行的 Shell 脚本",
+            "desktop_launch_script_placeholder": "可选 Shell 脚本（/bin/zsh）",
+            "desktop_launch_script_hint": "切换成功后执行，关闭自动打开时也会执行。脚本成功后才会自动打开桌面应用，留空则跳过。",
+            "save": "保存",
             "settings_general": "通用",
             "settings_experimental": "试验功能",
             "reset_expiry_experiment": "自动重置试验（仅日志）",
@@ -130,6 +150,7 @@ public enum L10n {
             "quit": "退出应用",
             "switch_title": "切换到 %@？",
             "switch_body": "Codex Desktop 将关闭并重新打开。请先完成或停止正在运行的 Desktop 任务。如果 Desktop 显示退出提示，请处理该提示；无法正常退出时会停止切换。现有 CLI 会话保持运行，新 CLI 会话将使用所选账号。",
+            "switch_body_launch_settings": "Codex Desktop 将关闭，切换完成后执行已保存的 Shell 脚本，再根据“自动打开”设置决定是否启动。请先完成或停止正在运行的 Desktop 任务。如果 Desktop 显示退出提示，请处理该提示；无法正常退出时会停止切换。现有 CLI 会话保持运行，新 CLI 会话将使用所选账号。",
             "cancel": "取消",
             "switch": "切换账号",
             "accounts": "账号",
@@ -161,6 +182,7 @@ public enum L10n {
             "active_unconfirmed": "无法确认当前账号",
             "switched_reopen_title": "账号已切换",
             "switched_reopen_message": "所选账号已经生效，但 Codex Desktop 未能重新打开。请手动打开 Codex 继续使用。",
+            "switched_script_failed_message": "所选账号已经生效，但 Shell 脚本执行失败，Codex Desktop 未自动打开。",
         ],
     ]
 }

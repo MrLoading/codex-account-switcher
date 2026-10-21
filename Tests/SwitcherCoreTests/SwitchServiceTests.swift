@@ -13,16 +13,40 @@ struct SwitchServiceTests {
         #expect(await fixture.store.restoredProfileIDs().isEmpty)
     }
 
-    @Test func executesTheSixSwitchStagesInOrder() async throws {
+    @Test func executesTheSwitchStagesInOrder() async throws {
         let fixture = SwitchFixture(failure: nil)
 
         try await fixture.service.switchAccount(to: fixture.target.id)
 
         #expect(await fixture.recorder.snapshot() == SwitchStage.allCases)
+        #expect(await fixture.recorder.recordedScriptSource() == fixture.original)
         #expect(await fixture.store.registryWasReadBeforeCredentialMutation())
         #expect(await fixture.store.credentialOwner() == fixture.target.id)
         #expect(await fixture.store.activeAccountID() == fixture.target.id)
         #expect(await fixture.store.restoredProfileIDs().isEmpty)
+    }
+
+    @Test func selectingTheActiveAccountDoesNothing() async throws {
+        let fixture = SwitchFixture(failure: nil)
+
+        try await fixture.service.switchAccount(to: fixture.original.id)
+
+        #expect(await fixture.recorder.snapshot().isEmpty)
+        #expect(await fixture.store.credentialOwner() == fixture.original.id)
+        #expect(await fixture.store.activeAccountID() == fixture.original.id)
+    }
+
+    @Test func platformsWithoutLaunchSettingsKeepReopeningDesktop() async throws {
+        let fixture = SwitchFixture(failure: nil)
+        let service = SwitchService(
+            desktop: DefaultDesktop(recorder: fixture.recorder),
+            store: fixture.store,
+            codex: fixture.service.codex
+        )
+
+        try await service.switchAccount(to: fixture.target.id)
+
+        #expect(await fixture.recorder.snapshot() == SwitchStage.allCases.filter { $0 != .runPostSwitchScript })
     }
 
     @Test func stopsAtTheFirstFailedStage() async {
@@ -93,6 +117,17 @@ struct SwitchServiceTests {
         #expect(await fixture.store.restoredProfileIDs().isEmpty)
     }
 
+    @Test func scriptFailureAfterCommitKeepsTargetAccountAndStopsReopening() async {
+        let fixture = SwitchFixture(failure: .runPostSwitchScript)
+
+        await expectFailure(fixture, stage: .runPostSwitchScript)
+
+        #expect(await fixture.store.credentialOwner() == fixture.target.id)
+        #expect(await fixture.store.activeAccountID() == fixture.target.id)
+        #expect(await fixture.store.restoredProfileIDs().isEmpty)
+        #expect(await fixture.recorder.snapshot().last == .runPostSwitchScript)
+    }
+
     @Test func reportsRestorationFailureAlongsideOriginalFailure() async {
         let fixture = SwitchFixture(failure: .verifyTargetIdentity, restoreFails: true)
 
@@ -136,8 +171,11 @@ private struct MissingOriginalPreflight: LocalizedError, Sendable {
 
 private actor CallRecorder {
     private var values: [SwitchStage] = []
+    private var scriptSource: AccountProfile?
     func append(_ value: SwitchStage) { values.append(value) }
     func snapshot() -> [SwitchStage] { values }
+    func recordScriptSource(_ source: AccountProfile?) { scriptSource = source }
+    func recordedScriptSource() -> AccountProfile? { scriptSource }
 }
 
 private struct FakeDesktop: DesktopControlling {
@@ -151,6 +189,17 @@ private struct FakeDesktop: DesktopControlling {
         await recorder.append(.reopenDesktop)
         if failure == .reopenDesktop { throw InjectedFailure(stage: .reopenDesktop) }
     }
+    func runPostSwitchScript(source: AccountProfile?) async throws {
+        await recorder.append(.runPostSwitchScript)
+        await recorder.recordScriptSource(source)
+        if failure == .runPostSwitchScript { throw InjectedFailure(stage: .runPostSwitchScript) }
+    }
+}
+
+private struct DefaultDesktop: DesktopControlling {
+    let recorder: CallRecorder
+    func closeDesktop() async throws { await recorder.append(.closeDesktop) }
+    func reopenDesktop() async throws { await recorder.append(.reopenDesktop) }
 }
 
 private actor FakeStore: AccountStoring {
@@ -191,8 +240,9 @@ private actor FakeStore: AccountStoring {
     }
 
     func profile(id: UUID) throws -> AccountProfile {
-        guard id == target.id else { throw AccountStoreError.profileNotFound }
-        return target
+        if id == target.id { return target }
+        if id == original.id { return original }
+        throw AccountStoreError.profileNotFound
     }
 
     func activeCodexHome() -> URL { URL(fileURLWithPath: "/tmp/active") }
