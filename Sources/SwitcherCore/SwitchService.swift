@@ -5,6 +5,14 @@ import Foundation
 public protocol DesktopControlling: Sendable {
     func closeDesktop() async throws
     func reopenDesktop() async throws
+    func runPostSwitchScript(source: AccountProfile?) async throws
+    func reopenDesktopAfterSwitch() async throws
+}
+
+public extension DesktopControlling {
+    // Platforms without custom launch settings retain the existing handoff.
+    func runPostSwitchScript(source: AccountProfile?) async throws {}
+    func reopenDesktopAfterSwitch() async throws { try await reopenDesktop() }
 }
 
 public protocol CodexIdentityReading: Sendable {
@@ -51,6 +59,8 @@ public struct SwitchService: SwitchServicing {
         } catch {
             throw OperationError.stage(.saveCurrentCredential, error)
         }
+
+        guard originalActiveID != targetID else { return }
 
         do {
             try await desktop.closeDesktop()
@@ -102,7 +112,13 @@ public struct SwitchService: SwitchServicing {
         }
 
         do {
-            try await desktop.reopenDesktop()
+            try await desktop.runPostSwitchScript(source: originalProfile)
+        } catch {
+            throw OperationError.stage(.runPostSwitchScript, error)
+        }
+
+        do {
+            try await desktop.reopenDesktopAfterSwitch()
         } catch {
             throw OperationError.stage(.reopenDesktop, error)
         }

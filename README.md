@@ -110,6 +110,14 @@ Run `codex-account-switcher update` to update, `open` to launch, or `uninstall` 
 | **Use resets before expiry** | Opt in to use expiring resets for all saved accounts, including inactive accounts, starting 10 minutes before expiry. Keep the app running and computer awake; real outcomes and usage readback remain in local logs. |
 | **Native apps on both platforms** | SwiftUI on macOS and WPF on Windows, with English and Simplified Chinese interfaces. |
 
+### Customize the macOS Desktop launch
+
+Set environment variables for Codex Desktop, run an optional shell script after each successful account switch, and choose whether Desktop reopens automatically after the script succeeds.
+
+<p align="center">
+  <img src="assets/macos-desktop-launch-settings.png" width="640" alt="macOS settings showing Codex Desktop launch environment, post-switch script, and automatic reopen controls">
+</p>
+
 ## How it works
 
 1. **Download for your platform:** install the macOS DMG or run the portable Windows EXE.

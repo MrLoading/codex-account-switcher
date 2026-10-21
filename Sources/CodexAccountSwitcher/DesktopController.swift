@@ -43,6 +43,11 @@ struct DesktopQuitWaiter: Sendable {
 struct DesktopController: DesktopControlling {
     private let bundleIdentifiers = ["com.openai.codex"]
     private let applicationPaths = ["/Applications/ChatGPT.app", "/Applications/Codex.app"]
+    private let store: AccountStore
+
+    init(store: AccountStore) {
+        self.store = store
+    }
 
     func closeDesktop() async throws {
         let running = runningDesktopApplications
@@ -65,11 +70,57 @@ struct DesktopController: DesktopControlling {
         }
         let configuration = NSWorkspace.OpenConfiguration()
         configuration.activates = true
+
+        let settings = (try? await store.loadSettings()) ?? .default
+        let launchEnvironment = DesktopLaunchEnvironment.parse(
+            settings.desktopLaunchEnvironment
+        )
+
+        if !launchEnvironment.isEmpty {
+            configuration.environment = launchEnvironment
+        }
+
         do {
             _ = try await NSWorkspace.shared.openApplication(at: url, configuration: configuration)
         } catch {
             throw DesktopControllerError.reopenFailed
         }
+    }
+
+    func runPostSwitchScript(source: AccountProfile? = nil) async throws {
+        let settings = try await store.loadSettings()
+        guard !settings.desktopLaunchScript.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+
+        // The switch service has already verified and committed the target account.
+        // The source is the snapshot captured by the switch service before credentials changed.
+        let registry = try await store.loadRegistry()
+        guard let activeID = registry.activeAccountID,
+              let target = registry.accounts.first(where: { $0.id == activeID }) else {
+            throw AccountStoreError.activeProfileMissing
+        }
+        var environment = DesktopLaunchEnvironment.parse(settings.desktopLaunchEnvironment)
+        // Reserved context overrides configured values, including absent optional fields.
+        environment["CODEX_SWITCHER_TARGET_PROFILE_ID"] = target.id.uuidString
+        environment["CODEX_SWITCHER_TARGET_ACCOUNT_ID"] = target.accountID ?? ""
+        environment["CODEX_SWITCHER_TARGET_EMAIL"] = target.email ?? ""
+        environment["CODEX_SWITCHER_TARGET_NAME"] = target.displayName
+        environment["CODEX_SWITCHER_SOURCE_PROFILE_ID"] = source?.id.uuidString ?? ""
+        environment["CODEX_SWITCHER_SOURCE_ACCOUNT_ID"] = source?.accountID ?? ""
+        environment["CODEX_SWITCHER_SOURCE_EMAIL"] = source?.email ?? ""
+        environment["CODEX_SWITCHER_SOURCE_NAME"] = source?.displayName ?? ""
+
+        try await DesktopLaunchScript().run(
+            settings.desktopLaunchScript,
+            environment: environment,
+            codexHome: await store.activeCodexHome()
+        )
+    }
+
+    func reopenDesktopAfterSwitch() async throws {
+        let settings = try await store.loadSettings()
+        guard settings.automaticallyOpensDesktopAfterSwitch else { return }
+        try Task.checkCancellation()
+        try await reopenDesktop()
     }
 
     private func applicationURL() -> URL? {
