@@ -35,3 +35,14 @@ test('publication waits for both builds and only the unified workflow publishes'
   assert.match(windows, /workflow_call:/);
   assert.doesNotMatch(windows, /gh release create|tags:/);
 });
+
+test('rolling development release waits for both platforms and replaces fixed assets', () => {
+  const development = fs.readFileSync('.github/workflows/macos-dev-build.yml', 'utf8');
+  const windows = fs.readFileSync('.github/workflows/windows.yml', 'utf8');
+  assert.match(development, /needs: \[macos, windows\]/);
+  assert.match(development, /RELEASE_TAG: dev-build/);
+  assert.match(development, /gh release create/);
+  assert.match(development, /gh release upload[\s\S]*--clobber/);
+  assert.match(development, /--prerelease/);
+  assert.doesNotMatch(windows, /push:\s*\n\s*branches: \[main\]/);
+});

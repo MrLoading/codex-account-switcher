@@ -14,20 +14,6 @@ on:
       - "scripts/validate-release-tag.mjs"
       - "scripts/tests/**"
       - ".github/workflows/windows.yml"
-  push:
-    branches: [main]
-    paths:
-      - "windows/**"
-      - "Sources/SwitcherCore/**"
-      - "Sources/SwitcherPlatform/**"
-      - "Sources/SwitcherHost/**"
-      - "Tests/SwitcherCoreTests/**"
-      - "Package.swift"
-      - "scripts/package-windows.ps1"
-      - "scripts/generate-windows-icons.py"
-      - "scripts/validate-release-tag.mjs"
-      - "scripts/tests/**"
-      - ".github/workflows/windows.yml"
   workflow_call:
   workflow_dispatch:
 

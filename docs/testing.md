@@ -5,7 +5,7 @@
 All Swift unit and integration tests live in `Tests/`:
 
 - `Tests/SwitcherCoreTests/` — Shared core tests covering `AccountController`, `AccountStore` / credential sync, `SwitchService`, `CodexClientTransportTests` (process reuse, concurrency, idle expiry, timeouts, cancellation, credential replacement), `LiveSubscriptionTests` (JWT snapshots, HTTP transport validation, 401 inactive renewal & backoff, npm wrapper unwrapping), `AutoResetTests`, `WeeklyUsageNormalizerTests`, and `WindowsProfileRemovalTests` (on Windows).
-- `Tests/CodexAccountSwitcherTests/` — macOS client tests covering `CodexClient`, `CodexExecutableLocator` (POSIX + `fish` login shells), `MenuBarPopover` / `ManageAccountsView` height bounds, `DesktopController`, `AppUpdater`, and `LaunchAtLoginState`.
+- `Tests/CodexAccountSwitcherTests/` — macOS client tests covering `CodexClient`, `CodexExecutableLocator` (POSIX + `fish` login shells), `MenuBarPopover` / `ManageAccountsView` height bounds, `DesktopController`, Desktop launch environment and post-switch scripts, `AppUpdater`, and `LaunchAtLoginState`.
 
 Run the full Swift suite locally (supports both full Xcode and macOS Command Line Tools):
 
@@ -14,6 +14,8 @@ Run the full Swift suite locally (supports both full Xcode and macOS Command Lin
 ```
 
 `CodexClientTransportTests` automatically materializes a local Python JSON-RPC fixture on POSIX when `SWITCHER_TEST_RPC_EXE` is unset, and uses the compiled `CodexAccountSwitcher.Checks.exe` fixture on Windows CI.
+
+`PostSwitchIntegrationTests` exercises normal switching, external-login resynchronization, first activation, script failure, and current-account registration with the real account store, local credential reader, and macOS script runner. It verifies that source/target metadata and custom environment values reach the script, provider configuration survives, disabled auto-open keeps Desktop closed, and a script failure preserves the committed account. `CodexClientTests` also covers custom-provider identity fallback and credential matching/restoration.
 
 ## Release & Site Script Tests
 

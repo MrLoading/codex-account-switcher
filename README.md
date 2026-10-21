@@ -59,6 +59,14 @@ Get the [latest unified release](https://github.com/liuzhao1225/codex-account-sw
 | **Use resets before expiry** | Opt-in automation that checks and consumes expiring `codexRateLimits` reset credits across saved accounts 10, 5, and 1 minute before expiry, backed by a bounded crash-resilient local log. |
 | **Drag-and-drop ordering & localization** | Reorder saved accounts in Manage Accounts; supports System Default, English, Simplified Chinese, and Italian. |
 
+### Customize the macOS Desktop launch
+
+Set environment variables for Codex Desktop, run an optional shell script after each successful account switch, and choose whether Desktop reopens automatically after the script succeeds.
+
+<p align="center">
+  <img src="assets/macos-desktop-launch-settings.png" width="640" alt="macOS settings showing Codex Desktop launch environment, post-switch script, and automatic reopen controls">
+</p>
+
 ## Privacy & Architecture
 
 - Saved profiles live in `~/Library/Application Support/Codex Account Switcher/` on macOS (`0700` directories, `0600` files) and `%LOCALAPPDATA%\Codex Account Switcher\` on Windows (current-user ACLs).

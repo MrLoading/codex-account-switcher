@@ -49,7 +49,11 @@ final class AppModel: AccountController, @MainActor ObservableObject {
         return AppModel(
             store: store,
             codex: codex,
-            switchService: SwitchService(desktop: DesktopController(), store: store, codex: CredentialIdentity()),
+            switchService: SwitchService(
+                desktop: DesktopController(store: store),
+                store: store,
+                codex: CredentialIdentity()
+            ),
             subscriptionClient: LiveSubscriptionClient()
         )
     }
