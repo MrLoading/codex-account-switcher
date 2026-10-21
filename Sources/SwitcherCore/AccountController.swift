@@ -203,7 +203,7 @@ open class AccountController {
             await refreshSubscriptionSnapshots()
             activeIdentityConfirmed = true
         } catch let error as OperationError {
-            if error.stage == .reopenDesktop {
+            if error.stage == .reopenDesktop || error.stage == .runPostSwitchScript {
                 do {
                     apply(try await store.loadRegistry())
                     activeIdentityConfirmed = true
@@ -211,11 +211,14 @@ open class AccountController {
                     showError(error)
                     return
                 }
+                let scriptFailed = error.stage == .runPostSwitchScript
                 visibleError = OperationError(
-                    stage: .reopenDesktop,
+                    stage: error.stage,
                     titleKey: "switched_reopen_title",
-                    messageKey: "switched_reopen_message",
-                    message: text("switched_reopen_message"),
+                    messageKey: scriptFailed ? nil : "switched_reopen_message",
+                    message: scriptFailed
+                        ? text("switched_script_failed_message") + " " + error.message
+                        : text("switched_reopen_message"),
                     underlyingDescription: error.underlyingDescription
                 )
             } else {
@@ -398,6 +401,25 @@ open class AccountController {
         resetExpiryTask = nil
         resetExpiryExperiment = nil
         showError(error)
+    }
+
+    public func setDesktopLaunchConfiguration(environment: String, script: String) async {
+        settings.desktopLaunchEnvironment = environment
+        settings.desktopLaunchScript = script
+        do {
+            try await store.saveSettings(settings)
+        } catch {
+            showError(error)
+        }
+    }
+
+    public func setAutomaticallyOpensDesktopAfterSwitch(_ enabled: Bool) async {
+        settings.automaticallyOpensDesktopAfterSwitch = enabled
+        do {
+            try await store.saveSettings(settings)
+        } catch {
+            showError(error)
+        }
     }
 
     public func dismissError() {

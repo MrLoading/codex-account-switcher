@@ -436,7 +436,9 @@ stateDiagram-v2
     SavingCurrent --> ActivatingTarget
     ActivatingTarget --> VerifyingTarget
     VerifyingTarget --> CommittingProfile
-    CommittingProfile --> ReopeningDesktop
+    CommittingProfile --> RunningPostSwitchScript
+    RunningPostSwitchScript --> ReopeningDesktop: Auto-open enabled
+    RunningPostSwitchScript --> Completed: Auto-open disabled
     ReopeningDesktop --> Completed
 
     Preflight --> Failed
@@ -446,6 +448,7 @@ stateDiagram-v2
     VerifyingTarget --> RestoringOriginal
     CommittingProfile --> RestoringOriginal
     RestoringOriginal --> Failed
+    RunningPostSwitchScript --> Failed
     ReopeningDesktop --> Failed
 
     Completed --> [*]
@@ -458,6 +461,12 @@ stateDiagram-v2
 
 [SwitchService](../Sources/SwitcherCore/SwitchService.swift) owns the switch sequence, including first activation and bounded credential restoration. [CredentialIdentity](../Sources/SwitcherCore/CredentialIdentity.swift) verifies identity from the installed credential.
 
+Startup, refresh, switching, and Register Current Account use local credentials. `AppModel.live()` injects `CredentialIdentity` into `SwitchService`, while the network-backed `CodexClient` remains responsible for login and Usage. For RPC identity reads that remain in login completion, an explicit `account: null` together with `requiresOpenaiAuth: false` means the selected provider does not expose an OpenAI account. `CodexClient` then identifies the saved ChatGPT login using the existing `CredentialIdentity` reader on that same home's `auth.json`. A null account that requires OpenAI authentication, an incomplete response, or credentials without a readable ChatGPT identity still fails. This reads local identity metadata; it does not establish token validity or authenticate the third-party provider. It neither rewrites provider configuration nor changes the handoff order.
+
+On macOS, `runPostSwitchScript` executes the saved script with `/bin/zsh -c` after the account is committed, and `reopenDesktopAfterSwitch` checks the persisted Auto-open preference after the script finishes. Empty scripts are skipped. A script error leaves the target account active and stops automatic opening. Platform adapters without these preferences default to no script and the existing `reopenDesktop` behavior.
+
+The existing `runPostSwitchScript(source:)` hook receives the optional original profile snapshot already captured by `SwitchService` before credential changes. The macOS adapter reads the committed target from `AccountStore.loadRegistry()` before running a nonempty script. It overlays each profile's local UUID, account/workspace ID, email, and display name as `CODEX_SWITCHER_SOURCE_PROFILE_ID`, `CODEX_SWITCHER_SOURCE_ACCOUNT_ID`, `CODEX_SWITCHER_SOURCE_EMAIL`, `CODEX_SWITCHER_SOURCE_NAME`, and the corresponding `CODEX_SWITCHER_TARGET_*` variables in the child environment. Missing optional fields become empty strings; on first activation, every source value is empty. Reserved metadata overrides user-configured values. This context remains local to script execution, with no new switch stages, persistent state, or storage-format changes. Scripts receive values through `Process.environment`, without shell-source interpolation.
+
 ### 12.3 Preflight
 
 Preflight performs only the minimum required to start:
@@ -468,7 +477,7 @@ Preflight performs only the minimum required to start:
 
 It does not inspect every filesystem property, create backups, test network reachability, or pre-verify credentials.
 
-These checks occur before the six recorded `SwitchStage` values.
+These checks occur before the seven recorded `SwitchStage` values, including the optional post-switch script.
 
 ### 12.4 Close Codex Desktop
 
@@ -509,11 +518,11 @@ After successful identity verification, write `activeAccountID` and `lastUsedAt`
 
 If this write fails, preserve the registry error and reinstall the just-saved original profile credential. The registry continues to name the original profile. No retry or startup reconciliation runs.
 
-### 12.9 Reopen Desktop
+### 12.9 Run the post-switch script and reopen Desktop
 
-Always attempt to reopen Codex Desktop after metadata commit.
+On macOS, run the optional script after metadata commit, then check the Auto-open preference before reopening Desktop. A script failure stops automatic opening. Platforms without these preferences retain the existing reopen behavior.
 
-If opening fails, report `reopeningDesktop` failure. The selected account remains active.
+If the script or opening fails, report the corresponding stage error. The selected account remains active.
 
 ## 13. Failure behavior
 
