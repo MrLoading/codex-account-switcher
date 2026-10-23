@@ -115,7 +115,7 @@ internal static class Program
                 "Settings must disclose that the experiment never consumes resets.");
             Assert(!All<TextBlock>(window).Any(text => text.Text is "保存" or "Save"), "Settings must not have a Save flow.");
             client.State = client.State with { Settings = client.State.Settings with { ShowsFiveHourUsage = true, ResetExpiryExperimentEnabled = true } };
-            window.Navigate("settings");
+            window.Navigate("settings"); Render(window, Path.Combine(output, "settings-experiment-enabled-zh.png"));
             Assert(All<CheckBox>(window).Single(toggle => System.Windows.Automation.AutomationProperties.GetName(toggle) == client.State.Text("reset_expiry_experiment")).IsChecked == true,
                 "The experiment toggle must reflect the persisted setting.");
             window.Navigate("accounts"); Render(window, Path.Combine(output, "accounts-five-hour-zh.png"));
