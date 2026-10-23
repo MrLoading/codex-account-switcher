@@ -157,7 +157,7 @@ The following controls are intentionally absent:
 
 The production client is a native SwiftUI menu-bar app.
 
-An AppKit application delegate owns the shared account, update and forecast models. It starts background work independently of the menu-bar label's appearance. Manual launch and Finder/Spotlight reopen events present the existing account view in a content-sized panel; login-item launch stays quiet. The panel preserves the three-account viewport and resets to the account page when explicitly reopened (or Manage Accounts while sign-in is pending). macOS controls menu-bar space, so icon visibility is not guaranteed on a crowded or notched display; the panel provides direct access in that case. The existing percentage toggle allows users to reduce the item's width.
+An AppKit application delegate owns the shared account, update and forecast models and starts background work independently of the menu-bar label's appearance. macOS uses only the menu-bar popover. Manual launch, login launch and Finder/Spotlight reopen do not create a separate account window. The popover preserves the three-account viewport and returns to the account list when reopened (or Manage Accounts while sign-in is pending).
 
 It does not require:
 

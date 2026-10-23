@@ -10,9 +10,17 @@ final class TiboForecastModel: ObservableObject {
     )
     @Published private(set) var forecast: TiboResetForecast?
     @Published private(set) var isLoading = false
+    @Published private(set) var failureMessage: String?
 
     private var pollingTask: Task<Void, Never>?
-    private var lastAttempt: Date?
+    private var lastSuccess: Date?
+    private let fetchForecast: @Sendable () async throws -> Data
+
+    init(fetchForecast: @escaping @Sendable () async throws -> Data = {
+        try await TiboForecastModel.fetch()
+    }) {
+        self.fetchForecast = fetchForecast
+    }
 
     func start() {
         guard pollingTask == nil else { return }
@@ -27,27 +35,30 @@ final class TiboForecastModel: ObservableObject {
 
     func refreshIfDue(after interval: TimeInterval = 900) async {
         guard !isLoading else { return }
-        if let lastAttempt, Date().timeIntervalSince(lastAttempt) < interval { return }
+        if let lastSuccess, Date().timeIntervalSince(lastSuccess) < interval { return }
         isLoading = true
-        lastAttempt = Date()
         defer { isLoading = false }
 
         do {
-            let forecastPayload = try await Self.fetch("https://codex-reset.com/api/forecast")
+            let forecastPayload = try await fetchForecast()
             let result = try TiboResetForecastReader.read(forecast: forecastPayload)
             forecast = result
+            lastSuccess = Date()
+            failureMessage = nil
             Self.logger.info("Public forecast refreshed: 24h=\(result.next24HourPercent, privacy: .public)%, 48h=\(result.next48HourPercent, privacy: .public)%, updatedAtEpoch=\(Int(result.updatedAt.timeIntervalSince1970), privacy: .public)")
         } catch {
             forecast = nil
+            lastSuccess = nil
+            failureMessage = error.localizedDescription
             Self.logger.warning("Public forecast unavailable: \(String(describing: error), privacy: .public)")
         }
     }
 
-    private static func fetch(_ address: String) async throws -> Data {
-        guard let url = URL(string: address) else { throw URLError(.badURL) }
+    private static func fetch() async throws -> Data {
+        let url = URL(string: "https://codex-reset.com/api/forecast")!
         var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 10)
         request.setValue(
-            "CodexAccountSwitcher/0.1.22 (+https://github.com/liuzhao1225/codex-account-switcher)",
+            "CodexAccountSwitcher/0.1.23 (+https://github.com/liuzhao1225/codex-account-switcher)",
             forHTTPHeaderField: "User-Agent"
         )
         let configuration = URLSessionConfiguration.ephemeral
@@ -56,11 +67,18 @@ final class TiboForecastModel: ObservableObject {
         let session = URLSession(configuration: configuration)
         defer { session.invalidateAndCancel() }
         let (data, response) = try await session.data(for: request)
-        guard let response = response as? HTTPURLResponse,
-              response.statusCode == 200,
-              response.url?.host == "codex-reset.com",
-              data.count <= 2_000_000
-        else { throw URLError(.badServerResponse) }
+        guard let response = response as? HTTPURLResponse else { throw URLError(.badServerResponse) }
+        guard response.statusCode == 200 else {
+            Self.logger.warning("Forecast HTTP \(response.statusCode, privacy: .public): \(String(decoding: data.prefix(1_024), as: UTF8.self), privacy: .public)")
+            throw URLError(.badServerResponse, userInfo: [
+                NSLocalizedDescriptionKey: "codex-reset.com: HTTP \(response.statusCode)",
+            ])
+        }
+        guard response.url?.host == "codex-reset.com", data.count <= 2_000_000 else {
+            throw URLError(.badServerResponse, userInfo: [
+                NSLocalizedDescriptionKey: "Unexpected forecast response: \(response.url?.absoluteString ?? "missing URL"), \(data.count) bytes",
+            ])
+        }
         return data
     }
 }

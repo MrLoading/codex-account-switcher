@@ -60,7 +60,7 @@ Recommended stack:
 - Foundation `FileManager`, `Process`, and JSON coding;
 - Local credential identity checks during switching; Codex app-server JSON-RPC over stdio for login and Usage reads.
 
-`SwitcherAppDelegate` owns the shared UI models and starts refresh/update work in `applicationDidFinishLaunching`, even when the menu-bar label is offscreen. Manual launch and `applicationShouldHandleReopen` present `MenuBarPopover` in an `NSPanel` hosted by SwiftUI, with content-derived size constraints. The login-item Apple event suppresses the initial panel. Service Management remains the source of truth for auto-start registration.
+`SwitcherAppDelegate` owns the shared UI models and starts refresh/update work in `applicationDidFinishLaunching`, independently of menu-bar visibility. `MenuBarExtra` presents the account interface; there is no separate account panel or reopen-window handler. Forecast requests launched when the popover opens outlive the popover, and a failed request can be attempted again on the next opening. Service Management remains the source of truth for auto-start registration.
 
 No third-party runtime dependency is required beyond the installed Codex executable.
 

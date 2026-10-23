@@ -172,12 +172,13 @@ Verify:
 
 With the packaged application:
 
-- quit and launch from Finder; confirm the account panel appears without clicking the menu bar;
-- close the panel with Escape or the close button, then double-click the running app in Finder; confirm one account panel reopens;
-- repeat with Settings or Manage Accounts open; confirm explicit reopen returns to the account list;
-- navigate to Settings and Manage Accounts and back; confirm content-derived height and the existing three-account scrolling limit;
-- test with a crowded/notched menu bar; confirm the independent panel stays accessible, and the percentage toggle reduces icon width;
-- `StartupTests` exercises the actual open-application Apple-event marker for quiet login launch; a real logout/login remains a separate manual check.
+- quit and launch from Finder; confirm the app has a menu-bar entry and no separate account window;
+- open the menu-bar popover; confirm the two Tibo probabilities are visible;
+- close the popover and reopen the app from Finder; confirm no separate window appears;
+- navigate to Settings and Manage Accounts and back; confirm content-derived height and the three-account scrolling limit;
+- close and reopen the menu while a forecast request is running; confirm closing the popover does not cancel the request;
+- after a failed forecast request, reopen the menu and confirm a new request can succeed immediately; the failure tooltip includes its specific HTTP or transport error;
+- `TiboForecastModelTests` covers initial failure, immediate recovery, success throttling and failure after a successful refresh. A real logout/login remains a separate manual check.
 
 1. open Settings and enable Launch at Login;
 2. confirm `sfltool dumpbtm` contains `com.liuzhao.codex-account-switcher`;

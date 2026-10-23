@@ -15,14 +15,14 @@ Last verified: October 23, 2026
 | Product website | [liuzhao1225.github.io/codex-account-switcher](https://liuzhao1225.github.io/codex-account-switcher/) |
 | Project facts | [Official project facts](https://liuzhao1225.github.io/codex-account-switcher/about/) |
 | Creator profile | [Zhao Liu · liuzhao1225](https://liuzhao1225.github.io/codex-account-switcher/about/creator/) |
-| Current release | [v0.1.22](https://github.com/liuzhao1225/codex-account-switcher/releases/tag/v0.1.22) |
+| Current release | [v0.1.23](https://github.com/liuzhao1225/codex-account-switcher/releases/tag/v0.1.23) |
 | Platform | macOS 14+ on Apple Silicon; Windows 10/11 x64 |
 | License | [MIT](../LICENSE) |
 | Status | Independent community software; not affiliated with or endorsed by OpenAI |
 
 ## Public source, downloads and feature evidence
 
-The public [v0.1.22 source tag](https://github.com/liuzhao1225/codex-account-switcher/tree/v0.1.22) and [matching Release](https://github.com/liuzhao1225/codex-account-switcher/releases/tag/v0.1.22), published October 23, 2026, establish source and binary availability. The release includes `Codex-Account-Switcher-macos-arm64.dmg`, `Codex-Account-Switcher-windows-x64.exe`, and each file's `.sha256` checksum. Source files include the [Swift package](../Package.swift), [macOS app](../Sources/CodexAccountSwitcher/SwitcherApp.swift) and [Windows window](../windows/CodexAccountSwitcher/MainWindow.cs).
+The public [v0.1.23 source tag](https://github.com/liuzhao1225/codex-account-switcher/tree/v0.1.23) and [matching Release](https://github.com/liuzhao1225/codex-account-switcher/releases/tag/v0.1.23), published October 23, 2026, establish source and binary availability. The release includes `Codex-Account-Switcher-macos-arm64.dmg`, `Codex-Account-Switcher-windows-x64.exe`, and each file's `.sha256` checksum. Source files include the [Swift package](../Package.swift), [macOS app](../Sources/CodexAccountSwitcher/SwitcherApp.swift) and [Windows window](../windows/CodexAccountSwitcher/MainWindow.cs).
 
 | Capability | Implementation evidence |
 | --- | --- |

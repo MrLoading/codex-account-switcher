@@ -6,9 +6,9 @@ import SwitcherCore
 
 @MainActor
 struct MenuBarPopoverTests {
-    @Test(arguments: [false, true], [false, true])
+    @Test(arguments: [false, true])
     func accountHeightIsIndependentOfPreviousPageAndCappedAtThreeRows(
-        expandedUsage: Bool, detachedPanel: Bool
+        expandedUsage: Bool
     ) async throws {
         let root = FileManager.default.temporaryDirectory
             .appending(path: "popover-layout-\(UUID())")
@@ -20,7 +20,7 @@ struct MenuBarPopoverTests {
             let updater = AppUpdater()
             let host = NSHostingController(rootView: MenuBarPopover(
                 model: model, updater: updater, tiboForecast: TiboForecastModel()
-            ).fixedSize(horizontal: detachedPanel, vertical: detachedPanel))
+            ))
             let maximumSize = NSSize(width: 400, height: CGFloat.greatestFiniteMagnitude)
             let manageSize = NSHostingController(rootView: ManageAccountsView(model: model, onBack: {}))
                 .sizeThatFits(in: maximumSize)
