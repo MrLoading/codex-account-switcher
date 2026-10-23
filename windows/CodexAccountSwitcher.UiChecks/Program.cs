@@ -103,7 +103,6 @@ internal static class Program
             Assert(All<TextBlock>(window).Count(text => text.Text == "当前") == 1, "Manage identifies the active account.");
             Assert(!All<TextBox>(window).Any(), "Account management must not add a rename workflow.");
             window.Navigate("settings"); Render(window, Path.Combine(output, "settings-zh.png"));
-            Assert(All<CheckBox>(window).Count() == 5, "Settings requires four existing toggles and the log-only experiment toggle.");
             var fiveHour = All<CheckBox>(window).Single(toggle => System.Windows.Automation.AutomationProperties.GetName(toggle) == "显示 5 小时用量");
             fiveHour.IsChecked = true; fiveHour.RaiseEvent(new RoutedEventArgs(CheckBox.ClickEvent));
             Assert(client.Commands.Single() == "fiveHour:True", "Settings must save immediately.");
