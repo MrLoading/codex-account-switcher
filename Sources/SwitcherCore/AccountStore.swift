@@ -65,6 +65,42 @@ public actor AccountStore: AccountStoring {
     private var settingsURL: URL { baseURL.appending(path: "settings.json") }
     private var usageCacheURL: URL { baseURL.appending(path: "usage-cache.json") }
     private var profilesURL: URL { baseURL.appending(path: "accounts", directoryHint: .isDirectory) }
+    public nonisolated var resetExpiryLogURL: URL { baseURL.appending(path: "reset-expiry-experiment.jsonl") }
+
+    func loadResetExpiryLog() throws -> [ResetExpiryEvent] {
+        try prepareDirectories()
+        guard fileManager.fileExists(atPath: resetExpiryLogURL.path) else { return [] }
+        return try readChecked(resetExpiryLogURL).split(separator: 0x0A).map {
+            try Self.decoder.decode(ResetExpiryEvent.self, from: Data($0))
+        }
+    }
+
+    func appendResetExpiryLog(_ events: [ResetExpiryEvent]) throws {
+        try prepareDirectories()
+        try checkPath(resetExpiryLogURL)
+        if !fileManager.fileExists(atPath: resetExpiryLogURL.path) {
+            try secureAtomicWrite(Data(), to: resetExpiryLogURL)
+        }
+        try restrictPermissions(resetExpiryLogURL, directory: false)
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        encoder.outputFormatting = [.sortedKeys]
+        var bytes = Data()
+        for event in events {
+            bytes.append(try encoder.encode(event))
+            bytes.append(0x0A)
+        }
+        let handle = try FileHandle(forWritingTo: resetExpiryLogURL)
+        do {
+            try handle.seekToEnd()
+            try handle.write(contentsOf: bytes)
+            try handle.synchronize()
+        } catch {
+            try? handle.close()
+            throw error
+        }
+        try handle.close()
+    }
 
     public func loadRegistry() throws -> AccountRegistry {
         try prepareDirectories()

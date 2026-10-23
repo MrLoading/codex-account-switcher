@@ -69,7 +69,7 @@ private final class Host {
             guard controller == nil else { throw HostError.message("Already initialized.") }
             let environment = ProcessInfo.processInfo.environment
             let store = AccountStore(baseURL: environment["CODEX_SWITCHER_DATA_HOME"].map { URL(fileURLWithPath: $0) })
-            let codex = CodexClient(clientVersion: request.version ?? "0.1.23", openBrowser: { [self] url in
+            let codex = CodexClient(clientVersion: request.version ?? "0.1.24", openBrowser: { [self] url in
                 guard ["https", "http"].contains(url.scheme?.lowercased() ?? "") else {
                     throw HostError.message("Unsupported sign-in URL.")
                 }
@@ -106,6 +106,9 @@ private final class Host {
         case "fiveHour":
             guard let value = request.value else { throw HostError.message("Missing setting.") }
             await model.setShowsFiveHourUsage(value)
+        case "resetExpiryExperiment":
+            guard let value = request.value else { throw HostError.message("Missing setting.") }
+            await model.setResetExpiryExperimentEnabled(value)
         case "statusBarUsageWindow":
             guard let raw = request.language, let window = StatusBarUsageWindow(rawValue: raw) else {
                 throw HostError.message("Invalid status bar usage window.")

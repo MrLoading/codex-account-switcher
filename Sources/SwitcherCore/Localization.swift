@@ -22,6 +22,10 @@ public enum L10n {
     private static let tables: [AppLanguage: [String: String]] = [
         .english: [
             "settings_general": "General",
+            "settings_experimental": "Experimental",
+            "reset_expiry_experiment": "Auto-reset experiment (log only)",
+            "reset_expiry_experiment_hint": "Logs at 10, 5 and 1 minute before expiry. Never consumes a reset. Keep the app running.",
+            "open_experiment_log": "Open Log Folder",
             "settings_updates": "Software Update",
             "update_available": "Version %@ available",
             "update_action": "Update…",
@@ -89,6 +93,10 @@ public enum L10n {
         ],
         .simplifiedChinese: [
             "settings_general": "通用",
+            "settings_experimental": "试验功能",
+            "reset_expiry_experiment": "自动重置试验（仅日志）",
+            "reset_expiry_experiment_hint": "到期前 10、5、1 分钟记录日志，不消耗 reset。请保持应用运行。",
+            "open_experiment_log": "打开日志文件夹",
             "settings_updates": "软件更新",
             "update_available": "发现新版本 %@",
             "update_action": "更新…",

@@ -8,6 +8,7 @@ final class SwitcherAppDelegate: NSObject, NSApplicationDelegate {
     let tiboForecast = TiboForecastModel()
 
     private var modelObservation: AnyCancellable?
+    private var wakeObservation: AnyCancellable?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         modelObservation = model.objectWillChange.sink { [weak self] in
@@ -16,6 +17,10 @@ final class SwitcherAppDelegate: NSObject, NSApplicationDelegate {
         }
         updater.start()
         tiboForecast.start()
+        wakeObservation = NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didWakeNotification)
+            .sink { [weak self] _ in
+                Task { @MainActor in self?.model.refreshWeeklyUsage() }
+            }
         Task { await model.startBackgroundUsageRefresh() }
     }
 }

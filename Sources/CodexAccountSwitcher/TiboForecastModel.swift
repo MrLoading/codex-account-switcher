@@ -58,7 +58,7 @@ final class TiboForecastModel: ObservableObject {
         let url = URL(string: "https://codex-reset.com/api/forecast")!
         var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 10)
         request.setValue(
-            "CodexAccountSwitcher/0.1.23 (+https://github.com/liuzhao1225/codex-account-switcher)",
+            "CodexAccountSwitcher/0.1.24 (+https://github.com/liuzhao1225/codex-account-switcher)",
             forHTTPHeaderField: "User-Agent"
         )
         let configuration = URLSessionConfiguration.ephemeral

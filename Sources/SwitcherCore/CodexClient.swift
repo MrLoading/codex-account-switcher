@@ -479,7 +479,7 @@ public struct CodexClient: AccountClient {
     private let openBrowser: @Sendable (URL) async throws -> Void
 
     public init(locator: CodexExecutableLocator = .init(), requestTimeout: Duration = .seconds(20),
-                clientVersion: String = "0.1.23",
+                clientVersion: String = "0.1.24",
                 openBrowser: @escaping @Sendable (URL) async throws -> Void = CodexClient.defaultOpenBrowser) {
         self.locator = locator
         self.requestTimeout = requestTimeout
@@ -518,9 +518,31 @@ public struct CodexClient: AccountClient {
             )
         }
         let availableCount = result["rateLimitResetCredits"]?["availableCount"]?.intValue
+        let credits: [BankedResetCredit]?
+        switch result["rateLimitResetCredits"]?["credits"] {
+        case let .array(rows):
+            credits = try rows.map { row in
+                guard let id = row["id"]?.stringValue, !id.isEmpty,
+                      let status = row["status"]?.stringValue,
+                      let resetType = row["resetType"]?.stringValue else {
+                    throw CodexClientError.malformedResponse
+                }
+                let expiresAt: Date?
+                switch row["expiresAt"] {
+                case .none, .null: expiresAt = nil
+                case let .number(seconds) where seconds.isFinite:
+                    expiresAt = Date(timeIntervalSince1970: seconds)
+                default: throw CodexClientError.malformedResponse
+                }
+                return BankedResetCredit(id: id, status: status, resetType: resetType, expiresAt: expiresAt)
+            }
+        case .none, .null: credits = nil
+        default: throw CodexClientError.malformedResponse
+        }
         return try WeeklyUsageNormalizer.normalize(
             parseWindows(result),
-            resetCreditsRemaining: availableCount.flatMap { $0 >= 0 ? $0 : nil }
+            resetCreditsRemaining: availableCount.flatMap { $0 >= 0 ? $0 : nil },
+            resetCredits: credits
         )
     }
 

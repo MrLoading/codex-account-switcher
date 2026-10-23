@@ -184,3 +184,7 @@ The implementation should:
 - avoid retry loops unless a later product requirement explicitly adds them.
 
 A partially completed switch remains observable. The implementation performs only the documented pre-commit credential restoration and adds no generic repair, retry, or startup-recovery behavior.
+
+## Reset expiry experiment
+
+The optional experiment is off by default and only writes local logs at 10, 5 and 1 minute before each banked reset expires. It never consumes a reset. Timing, persistence and error behavior are specified in [Reset expiry experiment](reset-expiry-experiment.md).

@@ -139,6 +139,40 @@ struct AccountControllerTests {
         #expect(fixture.model.activeRemainingPercent == 72)
     }
 
+    @Test func experimentSchedulesBeforeOrdinaryPollAndStopsWhenDisabled() async throws {
+        let fixture = try ControllerFixture()
+        defer { fixture.model.stopBackgroundUsageRefresh(); fixture.clean() }
+        try fixture.writeActiveCredential()
+        await fixture.client.setResetExpiry(Date().addingTimeInterval(602))
+        await fixture.model.startBackgroundUsageRefresh(every: .seconds(3600))
+        await fixture.model.waitForWeeklyUsageRefresh()
+        #expect(!FileManager.default.fileExists(atPath: fixture.store.resetExpiryLogURL.path))
+        await fixture.model.setResetExpiryExperimentEnabled(true)
+        await fixture.model.waitForWeeklyUsageRefresh()
+        #expect(try await fixture.store.loadSettings().resetExpiryExperimentEnabled)
+        try await Task.sleep(for: .seconds(3))
+        await fixture.model.waitForWeeklyUsageRefresh()
+        let events = try await fixture.store.loadResetExpiryLog()
+        #expect(events.contains { $0.checkpointMinutes == 10 && $0.decision == "would_attempt" })
+        #expect(events.allSatisfy { !$0.resetAttempted && $0.mode == "dry_run" })
+        await fixture.model.setResetExpiryExperimentEnabled(false)
+        let count = try await fixture.store.loadResetExpiryLog().count
+        fixture.model.refreshWeeklyUsage()
+        await fixture.model.waitForWeeklyUsageRefresh()
+        #expect(try await fixture.store.loadResetExpiryLog().count == count)
+        #expect(try await !fixture.store.loadSettings().resetExpiryExperimentEnabled)
+        #expect(fixture.model.visibleError == nil)
+    }
+
+    @Test func experimentLogFailureIsVisible() async throws {
+        let fixture = try ControllerFixture()
+        defer { fixture.clean() }
+        await fixture.model.start()
+        try FileManager.default.createDirectory(at: fixture.store.resetExpiryLogURL, withIntermediateDirectories: false)
+        await fixture.model.setResetExpiryExperimentEnabled(true)
+        #expect(fixture.model.visibleError != nil)
+    }
+
     @Test func activeProfileCannotBeRemoved() async throws {
         let fixture = try ControllerFixture()
         defer { fixture.clean() }
@@ -191,7 +225,9 @@ private struct ControllerFixture {
 
 private actor FixtureClient: AccountClient {
     private var usageFails = false
+    private var resetExpiry: Date?
     func failUsage() { usageFails = true }
+    func setResetExpiry(_ date: Date) { resetExpiry = date }
     func readIdentity(profileHome: URL) async throws -> AccountIdentity {
         AccountIdentity(accountID: "demo-account", email: "demo@example.test")
     }
@@ -200,7 +236,9 @@ private actor FixtureClient: AccountClient {
         return WeeklyUsage(
             remainingPercent: 72,
             resetsAt: Date(timeIntervalSince1970: 2_000_000_000),
-            fiveHourRemainingPercent: 18
+            fiveHourRemainingPercent: 18,
+            resetCreditsRemaining: resetExpiry == nil ? nil : 1,
+            resetCredits: resetExpiry.map { [BankedResetCredit(id: "fixture-credit", status: "available", resetType: "codexRateLimits", expiresAt: $0)] }
         )
     }
     func login(profileHome: URL) async throws -> AccountIdentity {

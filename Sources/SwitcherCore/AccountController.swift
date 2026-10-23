@@ -27,6 +27,10 @@ open class AccountController {
     private var addAccountTask: Task<Void, Never>?
     private var backgroundUsageRefreshInterval: Duration = .seconds(300)
     private var isBackgroundUsageRefreshEnabled = false
+    private var resetExpiryExperiment: ResetExpiryExperiment?
+    private var resetExpiryTask: Task<Void, Never>?
+
+    public var resetExpiryLogURL: URL { store.resetExpiryLogURL }
 
     public init(
         store: AccountStore,
@@ -69,6 +73,9 @@ open class AccountController {
             } catch {
                 showError(error)
             }
+            if settings.resetExpiryExperimentEnabled {
+                try await beginResetExpiryExperiment(event: "resumed")
+            }
         } catch {
             showError(error)
         }
@@ -83,6 +90,7 @@ open class AccountController {
             guard let self else { return }
             await self.performWeeklyUsageRefresh()
             self.usageRefreshTask = nil
+            self.scheduleResetExpiryCheck()
         }
     }
 
@@ -113,6 +121,8 @@ open class AccountController {
         isBackgroundUsageRefreshEnabled = false
         nextUsageRefreshTask?.cancel()
         nextUsageRefreshTask = nil
+        resetExpiryTask?.cancel()
+        resetExpiryTask = nil
     }
 
     private func scheduleNextWeeklyUsageRefresh() {
@@ -136,6 +146,9 @@ open class AccountController {
             try await syncActiveIdentity()
         } catch {
             showError(error)
+            for account in accounts {
+                await observeResetExpiry(profile: account, usage: nil, error: error.localizedDescription)
+            }
             return
         }
         guard !Task.isCancelled else { return }
@@ -156,15 +169,17 @@ open class AccountController {
                 guard !Task.isCancelled else { continue }
                 switch result {
                 case let .success(id, usage):
-                    guard accounts.contains(where: { $0.id == id }) else { continue }
+                    guard let account = accounts.first(where: { $0.id == id }) else { continue }
                     usageStates[id] = .loaded(usage)
+                    await observeResetExpiry(profile: account, usage: usage)
                     do {
                         try await store.cacheWeeklyUsage(usage, profileID: id)
                     } catch {
                         showError(error)
                     }
                 case let .failure(id, message):
-                    guard accounts.contains(where: { $0.id == id }) else { continue }
+                    guard let account = accounts.first(where: { $0.id == id }) else { continue }
+                    await observeResetExpiry(profile: account, usage: nil, error: message)
                     if let cached = usageStates[id]?.displayedUsage {
                         usageStates[id] = .stale(cached, message)
                     } else {
@@ -324,6 +339,67 @@ open class AccountController {
         } catch {
             showError(error)
         }
+    }
+
+    public func setResetExpiryExperimentEnabled(_ enabled: Bool) async {
+        do {
+            var updated = settings
+            updated.resetExpiryExperimentEnabled = enabled
+            try await store.saveSettings(updated)
+            settings = updated
+            resetExpiryTask?.cancel()
+            resetExpiryTask = nil
+            resetExpiryExperiment = nil
+            if enabled {
+                try await beginResetExpiryExperiment(event: "enabled")
+                refreshWeeklyUsage()
+            } else {
+                try await store.appendResetExpiryLog([ResetExpiryEvent(timestamp: Date(), event: "disabled")])
+            }
+        } catch {
+            stopResetExpiryExperiment(error)
+        }
+    }
+
+    private func beginResetExpiryExperiment(event: String) async throws {
+        let history = try await store.loadResetExpiryLog()
+        guard settings.resetExpiryExperimentEnabled else { return }
+        try await store.appendResetExpiryLog([ResetExpiryEvent(timestamp: Date(), event: event)])
+        guard settings.resetExpiryExperimentEnabled else { return }
+        resetExpiryExperiment = ResetExpiryExperiment(history: history)
+    }
+
+    private func observeResetExpiry(profile: AccountProfile, usage: WeeklyUsage?, error: String? = nil) async {
+        guard settings.resetExpiryExperimentEnabled, var experiment = resetExpiryExperiment else { return }
+        let events = experiment.observe(profile: profile, usage: usage, error: error, at: Date())
+        resetExpiryExperiment = experiment
+        do {
+            try await store.appendResetExpiryLog(events)
+        } catch {
+            stopResetExpiryExperiment(error)
+        }
+    }
+
+    private func scheduleResetExpiryCheck() {
+        resetExpiryTask?.cancel()
+        resetExpiryTask = nil
+        guard isBackgroundUsageRefreshEnabled, settings.resetExpiryExperimentEnabled,
+              let date = resetExpiryExperiment?.nextCheckpoint(accountIDs: Set(accounts.map(\.id))) else { return }
+        let delay = max(0, date.timeIntervalSinceNow)
+        resetExpiryTask = Task { [weak self] in
+            do { try await Task.sleep(for: .seconds(delay)) }
+            catch { return }
+            guard !Task.isCancelled, let self else { return }
+            self.resetExpiryTask = nil
+            self.refreshWeeklyUsage()
+        }
+    }
+
+    private func stopResetExpiryExperiment(_ error: any Error) {
+        resetExpiryTask?.cancel()
+        resetExpiryTask = nil
+        resetExpiryExperiment = nil
+        showError(error)
     }
 
     public func dismissError() {
