@@ -247,23 +247,15 @@ public actor AccountStore: AccountStoring {
         if fileManager.fileExists(atPath: directory.path) { try removeProfileDirectory(directory) }
     }
 
-    public func registerActiveIdentity(_ identity: AccountIdentity) throws {
-        let bytes = try readChecked(activeHomeURL.appending(path: "auth.json"))
-        try registerActiveIdentity(identity, credential: bytes)
-    }
-
     private func registerActiveIdentity(_ identity: AccountIdentity, credential bytes: Data) throws {
         let current = try loadRegistry()
-        let candidate = AccountProfile(id: UUID(), displayName: identity.suggestedDisplayName,
-            email: identity.email, accountID: identity.accountID, createdAt: Date(), lastUsedAt: Date())
-        guard let credentialIdentity = try CredentialIdentity.decode(bytes), credentialIdentity.matches(candidate) else {
-            throw AccountStoreError.activeCredentialMismatch
-        }
         if let profile = current.accounts.first(where: { identity.matches($0) }) {
             let destination = profileHome(id: profile.id).appending(path: "auth.json")
             if try readChecked(destination) != bytes { try secureAtomicWrite(bytes, to: destination) }
             if current.activeAccountID != profile.id { try commitActiveAccountID(profile.id) }
         } else {
+            let candidate = AccountProfile(id: UUID(), displayName: identity.suggestedDisplayName,
+                email: identity.email, accountID: identity.accountID, createdAt: Date(), lastUsedAt: Date())
             try importProfile(candidate, credential: bytes)
         }
     }

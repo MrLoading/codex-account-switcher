@@ -281,11 +281,9 @@ open class AccountController {
         await cancelUsageRefresh()
         defer { isMutating = false; refreshWeeklyUsage() }
         do {
-            let identity = try await codex.readIdentity(profileHome: await store.activeCodexHome())
-            try await store.registerActiveIdentity(identity)
-            apply(try await store.loadRegistry())
+            guard await store.activeCredentialExists() else { throw AccountStoreError.activeCredentialMissing }
+            try await syncActiveIdentity()
             await refreshSubscriptionSnapshots()
-            activeIdentityConfirmed = true
             visibleError = nil
         } catch { showError(error) }
     }

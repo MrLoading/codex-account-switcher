@@ -15,7 +15,7 @@ The September 5 update adds one explicit maintenance job: keep Switcher current 
 
 The popover uses a 400-point content width so the reset count and saved subscription date fit without crowding adjacent account rows.
 
-The account list grows with its content up to three quarters of the current screen's usable height, then scrolls. Footer actions remain outside the scrolling list.
+The account list grows with its content up to three visible account rows, then scrolls. Footer actions remain outside the scrolling list.
 
 With the default settings, each saved account row shows:
 
@@ -90,7 +90,7 @@ Preflight target and original active profile
 → reopen Codex Desktop
 ```
 
-Before any credential write, preflight reads the registry and validates `originalActiveID`. After target activation succeeds, a verification or registry-commit failure restores `~/.codex/auth.json` from the original profile snapshot saved earlier in the same attempt. An activation failure does not run restoration because replacement did not complete. A Desktop-reopen failure occurs after the registry commit and keeps the selected account active.
+Before any credential write, preflight reads the registry and validates the selected profile and any original active profile. A first activation is allowed when no active credential exists. Identity checks read the installed local credential without an app-server request. After target activation succeeds, a verification or registry-commit failure restores `~/.codex/auth.json` from the original profile snapshot saved earlier in the same attempt. An activation failure does not run restoration because replacement did not complete. A Desktop-reopen failure occurs after the registry commit and keeps the selected account active.
 
 The MVP does not implement:
 
@@ -105,7 +105,7 @@ When a step fails, execution stops and the exact original error is shown. If the
 
 ## 6. Credential storage
 
-The MVP uses ordinary local files with user-only permissions.
+The MVP uses ordinary local files with user-only permissions. Startup, refresh and Register Current Account identify and save the same local credential bytes. Manual registration does not need an identity RPC.
 
 - Codex active credential: `~/.codex/auth.json`
 - Switcher registry: `~/Library/Application Support/Codex Account Switcher/accounts.json`
@@ -188,3 +188,7 @@ A partially completed switch remains observable. The implementation performs onl
 ## Reset expiry experiment
 
 The optional experiment is off by default and only writes local logs at 10, 5 and 1 minute before each banked reset expires. It never consumes a reset. Timing, persistence and error behavior are specified in [Reset expiry experiment](reset-expiry-experiment.md).
+
+## Public reset forecast
+
+Display `probabilities.rounded_24h` and `probabilities.rounded_48h` from `https://codex-reset.com/api/forecast`. The timestamp, reset metadata and relative ordering of the two values do not gate display. HTTP errors, missing or malformed fields, and percentages outside 0–100 remain visible failures.

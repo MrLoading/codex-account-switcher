@@ -84,7 +84,7 @@ struct AccountControllerTests {
         #expect(try Data(contentsOf: fixture.active.appendingPathComponent("auth.json")) == credential)
     }
 
-    @Test func registerUsesExistingIdentityAndPreservesProfile() async throws {
+    @Test func registerUsesLocalIdentityAndPreservesProfileWithoutAnRPC() async throws {
         let fixture = try ControllerFixture()
         defer { fixture.clean() }
         try fixture.writeActiveCredential()
@@ -93,6 +93,25 @@ struct AccountControllerTests {
         await fixture.model.registerCurrentAccount()
         #expect(fixture.model.accounts.count == 1)
         #expect(fixture.model.activeAccountID == id)
+        #expect(await fixture.client.identityReads == 0)
+        await fixture.model.waitForWeeklyUsageRefresh()
+    }
+
+    @Test(arguments: [false, true])
+    func registerReportsMissingOrMalformedCredentials(malformed: Bool) async throws {
+        let fixture = try ControllerFixture()
+        defer { fixture.clean() }
+        await fixture.model.start()
+        if malformed {
+            try Data("invalid-test-credential".utf8).write(to: fixture.active.appendingPathComponent("auth.json"))
+        }
+        await fixture.model.registerCurrentAccount()
+        await fixture.model.waitForWeeklyUsageRefresh()
+        #expect(fixture.model.accounts.isEmpty)
+        #expect(fixture.model.visibleError?.message == (malformed
+            ? CodexClientError.identityUnavailable.localizedDescription
+            : AccountStoreError.activeCredentialMissing.localizedDescription))
+        #expect(await fixture.client.identityReads == 0)
     }
 
     @Test func refreshKeepsLastGoodUsageWhenTheServerFails() async throws {
@@ -224,12 +243,14 @@ private struct ControllerFixture {
 }
 
 private actor FixtureClient: AccountClient {
+    private(set) var identityReads = 0
     private var usageFails = false
     private var resetExpiry: Date?
     func failUsage() { usageFails = true }
     func setResetExpiry(_ date: Date) { resetExpiry = date }
     func readIdentity(profileHome: URL) async throws -> AccountIdentity {
-        AccountIdentity(accountID: "demo-account", email: "demo@example.test")
+        identityReads += 1
+        return AccountIdentity(accountID: "demo-account", email: "demo@example.test")
     }
     func readWeeklyUsage(profileHome: URL) async throws -> WeeklyUsage {
         if usageFails { throw CodexClientError.connectionClosed }

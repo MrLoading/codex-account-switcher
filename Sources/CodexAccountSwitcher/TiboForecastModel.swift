@@ -45,7 +45,7 @@ final class TiboForecastModel: ObservableObject {
             forecast = result
             lastSuccess = Date()
             failureMessage = nil
-            Self.logger.info("Public forecast refreshed: 24h=\(result.next24HourPercent, privacy: .public)%, 48h=\(result.next48HourPercent, privacy: .public)%, updatedAtEpoch=\(Int(result.updatedAt.timeIntervalSince1970), privacy: .public)")
+            Self.logger.info("Public forecast refreshed: 24h=\(result.next24HourPercent, privacy: .public)%, 48h=\(result.next48HourPercent, privacy: .public)%")
         } catch {
             forecast = nil
             lastSuccess = nil
@@ -58,7 +58,7 @@ final class TiboForecastModel: ObservableObject {
         let url = URL(string: "https://codex-reset.com/api/forecast")!
         var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 10)
         request.setValue(
-            "CodexAccountSwitcher/0.1.24 (+https://github.com/liuzhao1225/codex-account-switcher)",
+            "CodexAccountSwitcher/\(CodexClient().clientVersion) (+https://github.com/liuzhao1225/codex-account-switcher)",
             forHTTPHeaderField: "User-Agent"
         )
         let configuration = URLSessionConfiguration.ephemeral
@@ -72,11 +72,6 @@ final class TiboForecastModel: ObservableObject {
             Self.logger.warning("Forecast HTTP \(response.statusCode, privacy: .public): \(String(decoding: data.prefix(1_024), as: UTF8.self), privacy: .public)")
             throw URLError(.badServerResponse, userInfo: [
                 NSLocalizedDescriptionKey: "codex-reset.com: HTTP \(response.statusCode)",
-            ])
-        }
-        guard response.url?.host == "codex-reset.com", data.count <= 2_000_000 else {
-            throw URLError(.badServerResponse, userInfo: [
-                NSLocalizedDescriptionKey: "Unexpected forecast response: \(response.url?.absoluteString ?? "missing URL"), \(data.count) bytes",
             ])
         }
         return data

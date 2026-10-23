@@ -454,47 +454,9 @@ stateDiagram-v2
 
 `RestoringOriginal` is the single bounded consistency action after successful target activation and before a successful registry commit. There is no persisted or general rollback state machine.
 
-### 12.2 Pseudocode
+### 12.2 Implementation
 
-```swift
-func switchAccount(to targetID: UUID) async throws {
-    let target = try store.profile(id: targetID)
-    let registry = try store.loadRegistry()
-    guard let originalActiveID = registry.activeAccountID,
-          registry.accounts.contains(where: { $0.id == originalActiveID }) else {
-        throw AccountStoreError.activeProfileMissing
-    }
-
-    stage = .closeDesktop
-    try await desktop.closeDesktop()
-
-    stage = .saveCurrentCredential
-    try await store.saveCurrentCredential()
-
-    stage = .activateTargetCredential
-    try await store.activateTargetCredential(id: target.id)
-
-    stage = .verifyTargetIdentity
-    do {
-        let identity = try await codex.readIdentity(profileHome: store.activeCodexHome())
-        guard identity.matches(target) else { throw CodexClientError.identityUnavailable }
-    } catch {
-        throw await restoreOriginalCredential(originalActiveID, preserving: error)
-    }
-
-    stage = .commitActiveAccountID
-    do {
-        try await store.commitActiveAccountID(target.id)
-    } catch {
-        throw await restoreOriginalCredential(originalActiveID, preserving: error)
-    }
-
-    stage = .reopenDesktop
-    try await desktop.reopenDesktop()
-}
-```
-
-The restoration helper reuses the saved profile credential and the same atomic installation path. It returns the original stage error after a successful restoration, or one error containing both the original and restoration failures.
+[SwitchService](../Sources/SwitcherCore/SwitchService.swift) owns the switch sequence, including first activation and bounded credential restoration. [CredentialIdentity](../Sources/SwitcherCore/CredentialIdentity.swift) verifies identity from the installed credential.
 
 ### 12.3 Preflight
 

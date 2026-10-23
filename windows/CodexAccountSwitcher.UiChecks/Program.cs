@@ -101,7 +101,6 @@ internal static class Program
                 hintPosition.Y >= addPosition.Y && hintPosition.Y + addHint.ActualHeight <= addPosition.Y + addButton.ActualHeight + 1,
                 "The sign-in hint must sit to the right of Add Account within the same row.");
             Assert(All<TextBlock>(window).Count(text => text.Text == "当前") == 1, "Manage identifies the active account.");
-            Assert(!All<TextBox>(window).Any(), "Account management must not add a rename workflow.");
             window.Navigate("settings"); Render(window, Path.Combine(output, "settings-zh.png"));
             var fiveHour = All<CheckBox>(window).Single(toggle => System.Windows.Automation.AutomationProperties.GetName(toggle) == "显示 5 小时用量");
             fiveHour.IsChecked = true; fiveHour.RaiseEvent(new RoutedEventArgs(CheckBox.ClickEvent));

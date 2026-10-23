@@ -46,7 +46,6 @@ struct TiboForecastModelTests {
 
     private func payload() throws -> Data {
         try JSONSerialization.data(withJSONObject: [
-            "updated_at": ISO8601DateFormatter().string(from: Date()),
             "probabilities": ["rounded_24h": 32, "rounded_48h": 53],
         ])
     }
