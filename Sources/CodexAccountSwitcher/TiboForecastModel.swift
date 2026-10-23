@@ -33,17 +33,13 @@ final class TiboForecastModel: ObservableObject {
         defer { isLoading = false }
 
         do {
-            async let forecastData = Self.fetch("https://codex-reset.com/api/forecast?tz=Asia%2FShanghai")
-            async let timelineData = Self.fetch("https://codex-reset.com/api/timeline")
-            let (forecastPayload, timelinePayload) = try await (forecastData, timelineData)
-            let result = try TiboResetForecastReader.read(
-                forecast: forecastPayload, timeline: timelinePayload
-            )
+            let forecastPayload = try await Self.fetch("https://codex-reset.com/api/forecast")
+            let result = try TiboResetForecastReader.read(forecast: forecastPayload)
             forecast = result
-            Self.logger.info("Public forecast refreshed: updatedAtEpoch=\(Int(result.updatedAt.timeIntervalSince1970), privacy: .public), confirmedPosts=\(result.events.count, privacy: .public)")
+            Self.logger.info("Public forecast refreshed: 24h=\(result.next24HourPercent, privacy: .public)%, 48h=\(result.next48HourPercent, privacy: .public)%, updatedAtEpoch=\(Int(result.updatedAt.timeIntervalSince1970), privacy: .public)")
         } catch {
             forecast = nil
-            Self.logger.warning("Public forecast unavailable")
+            Self.logger.warning("Public forecast unavailable: \(String(describing: error), privacy: .public)")
         }
     }
 
@@ -51,7 +47,7 @@ final class TiboForecastModel: ObservableObject {
         guard let url = URL(string: address) else { throw URLError(.badURL) }
         var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 10)
         request.setValue(
-            "CodexAccountSwitcher/0.1.21 (+https://github.com/liuzhao1225/codex-account-switcher)",
+            "CodexAccountSwitcher/0.1.22 (+https://github.com/liuzhao1225/codex-account-switcher)",
             forHTTPHeaderField: "User-Agent"
         )
         let configuration = URLSessionConfiguration.ephemeral
